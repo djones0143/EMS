@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corbin High School Academic Meet Scorer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            max-width: 1200px;
+            width: 100%;
+            padding: 30px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #1e3c72;
+        }
+
+        h1 {
+            color: #1e3c72;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .timer-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .timer-display {
+            font-size: 5em;
+            font-weight: bold;
+            color: #1e3c72;
+            font-family: 'Courier New', monospace;
+            margin: 20px 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .timer-display.warning {
+            color: #ff6b6b;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .half-indicator {
+            font-size: 1.8em;
+            color: #2a5298;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .timer-controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #45a049;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #da190b;
+        }
+
+        .btn-warning {
+            background: #ff9800;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #e68900;
+        }
+
+        .btn-secondary {
+            background: #607d8b;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4d6570;
+        }
+
+        .btn-info {
+            background: #2196F3;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #0b7dda;
+        }
+
+        .scoreboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .team-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            padding: 30px;
+            color: white;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .team-card.team1 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .team-card.team2 {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .team-name-input {
+            width: 100%;
+            padding: 12px;
+            font-size: 1.3em;
+            border: none;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .team-name-display {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+            min-height: 1.5em;
+        }
+
+        .score-display {
+            font-size: 5em;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .score-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .score-btn {
+            padding: 15px;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            transition: all 0.3s ease;
+        }
+
+        .score-btn:hover {
+            background: white;
+            transform: scale(1.05);
+        }
+
+        .score-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .bonus-section {
+            background: #fff3cd;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            border: 3px solid #ffc107;
+        }
+
+        .bonus-section h3 {
+            color: #856404;
+            margin-bottom: 15px;
+        }
+
+        .bonus-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .history {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        .history h3 {
+            color: #1e3c72;
+            margin-bottom: 15px;
+        }
+
+        .history-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            padding: 10px;
+            background: white;
+            margin-bottom: 5px;
+            border-radius: 8px;
+            border-left: 4px solid #2a5298;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .scoreboard {
+                grid-template-columns: 1fr;
+            }
+
+            .timer-display {
+                font-size: 3.5em;
+            }
+
+            .score-display {
+                font-size: 3.5em;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .btn {
+                padding: 12px 20px;
+                font-size: 1em;
+            }
+        }
+
+        .question-counter {
+            font-size: 1.5em;
+            color: #2a5298;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Corbin High School</h1>
+            <p class="subtitle">Academic Meet Scorer - KAAC Quick Recall Format</p>
+        </header>
+
+        <div class="timer-section">
+            <div class="half-indicator" id="halfIndicator">First Half</div>
+            <div class="timer-display" id="timerDisplay">7:30</div>
+            <div class="question-counter" id="questionCounter">Questions: 0 / 50</div>
+            <div class="timer-controls">
+                <button class="btn btn-primary" id="startBtn" onclick="startTimer()">Start</button>
+                <button class="btn btn-danger" id="stopBtn" onclick="stopTimer()">Stop</button>
+                <button class="btn btn-warning" id="halftimeBtn" onclick="startHalftime()">Halftime</button>
+                <button class="btn btn-secondary" id="resetTimerBtn" onclick="resetTimer()">Reset Timer</button>
+            </div>
+        </div>
+
+        <div class="scoreboard">
+            <div class="team-card team1">
+                <input type="text" class="team-name-input" id="team1Name" placeholder="Team 1 Name"
+                       oninput="updateTeamName(1)" maxlength="30">
+                <div class="team-name-display" id="team1Display">Team 1</div>
+                <div class="score-display" id="team1Score">0</div>
+                <div class="score-buttons">
+                    <button class="score-btn" onclick="tossupCorrect(1)">Toss-Up Correct (+1)</button>
+                    <button class="score-btn" onclick="adjustScore(1, -1)">Subtract Point (-1)</button>
+                </div>
+            </div>
+
+            <div class="team-card team2">
+                <input type="text" class="team-name-input" id="team2Name" placeholder="Team 2 Name"
+                       oninput="updateTeamName(2)" maxlength="30">
+                <div class="team-name-display" id="team2Display">Team 2</div>
+                <div class="score-display" id="team2Score">0</div>
+                <div class="score-buttons">
+                    <button class="score-btn" onclick="tossupCorrect(2)">Toss-Up Correct (+1)</button>
+                    <button class="score-btn" onclick="adjustScore(2, -1)">Subtract Point (-1)</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="bonus-section" id="bonusSection">
+            <h3>Bonus Question Available</h3>
+            <div class="bonus-buttons">
+                <button class="btn btn-primary" id="bonusTeamBtn" onclick="bonusCorrect('current')">
+                    <span id="bonusTeamName">Team</span> Bonus Correct (+1)
+                </button>
+                <button class="btn btn-info" id="bouncebackBtn" onclick="bonusCorrect('bounce')">
+                    Bounce-Back to <span id="bouncebackTeamName">Other Team</span> (+1)
+                </button>
+                <button class="btn btn-secondary" onclick="bonusIncorrect()">Both Incorrect (No Points)</button>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-warning" onclick="undoLast()">Undo Last Score</button>
+            <button class="btn btn-danger" onclick="resetGame()">Reset Game</button>
+        </div>
+
+        <div class="history">
+            <h3>Score History</h3>
+            <div class="history-list" id="historyList">
+                <p style="color: #999; text-align: center;">No scores recorded yet</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let gameState = {
+            team1: { name: 'Team 1', score: 0 },
+            team2: { name: 'Team 2', score: 0 },
+            currentHalf: 1,
+            timeRemaining: 450, // 7.5 minutes in seconds
+            timerRunning: false,
+            timerInterval: null,
+            bonusActive: false,
+            bonusTeam: null,
+            scoreHistory: [],
+            questionCount: 0
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            hideBonusSection();
+            updateDisplay();
+        });
+
+        function updateTeamName(teamNum) {
+            const input = document.getElementById(`team${teamNum}Name`);
+            const display = document.getElementById(`team${teamNum}Display`);
+            const name = input.value.trim() || `Team ${teamNum}`;
+            gameState[`team${teamNum}`].name = name;
+            display.textContent = name;
+        }
+
+        function startTimer() {
+            if (!gameState.timerRunning) {
+                gameState.timerRunning = true;
+                gameState.timerInterval = setInterval(updateTimer, 1000);
+            }
+        }
+
+        function stopTimer() {
+            gameState.timerRunning = false;
+            if (gameState.timerInterval) {
+                clearInterval(gameState.timerInterval);
+                gameState.timerInterval = null;
+            }
+        }
+
+        function updateTimer() {
+            if (gameState.timeRemaining > 0) {
+                gameState.timeRemaining--;
+                updateTimerDisplay();
+            } else {
+                stopTimer();
+                if (gameState.currentHalf === 1) {
+                    alert('First half ended! Press Halftime to start second half.');
+                } else {
+                    alert('Game Over!');
+                }
+            }
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(gameState.timeRemaining / 60);
+            const seconds = gameState.timeRemaining % 60;
+            const display = document.getElementById('timerDisplay');
+            display.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+            // Warning color when under 1 minute
+            if (gameState.timeRemaining < 60) {
+                display.classList.add('warning');
+            } else {
+                display.classList.remove('warning');
+            }
+        }
+
+        function startHalftime() {
+            stopTimer();
+            if (gameState.currentHalf === 1) {
+                gameState.currentHalf = 2;
+                gameState.timeRemaining = 450; // 7.5 minutes for second half
+                document.getElementById('halfIndicator').textContent = 'Second Half';
+                updateTimerDisplay();
+                addToHistory('Halftime - Second Half Started');
+            } else {
+                alert('Already in second half!');
+            }
+        }
+
+        function resetTimer() {
+            stopTimer();
+            gameState.timeRemaining = 450;
+            updateTimerDisplay();
+        }
+
+        function tossupCorrect(teamNum) {
+            if (gameState.bonusActive) {
+                alert('Please complete the bonus question first!');
+                return;
+            }
+
+            gameState[`team${teamNum}`].score++;
+            gameState.questionCount++;
+            gameState.bonusActive = true;
+            gameState.bonusTeam = teamNum;
+
+            const teamName = gameState[`team${teamNum}`].name;
+            addToHistory(`${teamName} - Toss-Up Correct (+1)`);
+            showBonusSection(teamNum);
+            updateDisplay();
+        }
+
+        function bonusCorrect(type) {
+            if (!gameState.bonusActive) return;
+
+            let teamNum;
+            if (type === 'current') {
+                teamNum = gameState.bonusTeam;
+                const teamName = gameState[`team${teamNum}`].name;
+                addToHistory(`${teamName} - Bonus Correct (+1)`);
+            } else {
+                teamNum = gameState.bonusTeam === 1 ? 2 : 1;
+                const teamName = gameState[`team${teamNum}`].name;
+                addToHistory(`${teamName} - Bounce-Back Correct (+1)`);
+            }
+
+            gameState[`team${teamNum}`].score++;
+            hideBonusSection();
+            updateDisplay();
+        }
+
+        function bonusIncorrect() {
+            if (!gameState.bonusActive) return;
+
+            addToHistory('Bonus - Both Incorrect (No Points)');
+            hideBonusSection();
+            updateDisplay();
+        }
+
+        function adjustScore(teamNum, points) {
+            if (gameState.bonusActive) {
+                alert('Please complete the bonus question first!');
+                return;
+            }
+
+            const newScore = gameState[`team${teamNum}`].score + points;
+            if (newScore >= 0) {
+                gameState[`team${teamNum}`].score = newScore;
+                const teamName = gameState[`team${teamNum}`].name;
+                const action = points > 0 ? 'Added' : 'Subtracted';
+                addToHistory(`${teamName} - ${action} ${Math.abs(points)} point(s)`);
+                updateDisplay();
+            }
+        }
+
+        function showBonusSection(teamNum) {
+            const bonusSection = document.getElementById('bonusSection');
+            const bonusTeamName = document.getElementById('bonusTeamName');
+            const bouncebackTeamName = document.getElementById('bouncebackTeamName');
+            const otherTeamNum = teamNum === 1 ? 2 : 1;
+
+            bonusTeamName.textContent = gameState[`team${teamNum}`].name;
+            bouncebackTeamName.textContent = gameState[`team${otherTeamNum}`].name;
+            bonusSection.classList.remove('hidden');
+        }
+
+        function hideBonusSection() {
+            gameState.bonusActive = false;
+            gameState.bonusTeam = null;
+            document.getElementById('bonusSection').classList.add('hidden');
+        }
+
+        function updateDisplay() {
+            document.getElementById('team1Score').textContent = gameState.team1.score;
+            document.getElementById('team2Score').textContent = gameState.team2.score;
+            document.getElementById('questionCounter').textContent =
+                `Questions: ${gameState.questionCount} / 50`;
+        }
+
+        function addToHistory(text) {
+            const timestamp = new Date().toLocaleTimeString();
+            const minutes = Math.floor(gameState.timeRemaining / 60);
+            const seconds = gameState.timeRemaining % 60;
+            const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+            gameState.scoreHistory.push({
+                text: text,
+                timestamp: timestamp,
+                timeRemaining: timeStr,
+                team1Score: gameState.team1.score,
+                team2Score: gameState.team2.score,
+                questionCount: gameState.questionCount
+            });
+
+            updateHistoryDisplay();
+        }
+
+        function updateHistoryDisplay() {
+            const historyList = document.getElementById('historyList');
+            if (gameState.scoreHistory.length === 0) {
+                historyList.innerHTML = '<p style="color: #999; text-align: center;">No scores recorded yet</p>';
+                return;
+            }
+
+            historyList.innerHTML = gameState.scoreHistory
+                .slice()
+                .reverse()
+                .map(item => `
+                    <div class="history-item">
+                        <strong>${item.timestamp}</strong> (${item.timeRemaining} remaining) - ${item.text}
+                        <br><small>Score: ${gameState.team1.name} ${item.team1Score} - ${item.team2Score} ${gameState.team2.name}</small>
+                    </div>
+                `)
+                .join('');
+        }
+
+        function undoLast() {
+            if (gameState.scoreHistory.length === 0) {
+                alert('No actions to undo!');
+                return;
+            }
+
+            if (gameState.bonusActive) {
+                alert('Please complete or cancel the current bonus question first!');
+                return;
+            }
+
+            gameState.scoreHistory.pop();
+
+            // Rebuild game state from history
+            resetGameState();
+            gameState.scoreHistory.forEach(item => {
+                // This is a simplified undo - in production you'd want more sophisticated state management
+            });
+
+            if (gameState.scoreHistory.length > 0) {
+                const lastItem = gameState.scoreHistory[gameState.scoreHistory.length - 1];
+                gameState.team1.score = lastItem.team1Score;
+                gameState.team2.score = lastItem.team2Score;
+                gameState.questionCount = lastItem.questionCount;
+            } else {
+                gameState.team1.score = 0;
+                gameState.team2.score = 0;
+                gameState.questionCount = 0;
+            }
+
+            hideBonusSection();
+            updateDisplay();
+            updateHistoryDisplay();
+        }
+
+        function resetGame() {
+            if (confirm('Are you sure you want to reset the entire game? This cannot be undone.')) {
+                stopTimer();
+                resetGameState();
+                document.getElementById('halfIndicator').textContent = 'First Half';
+                updateDisplay();
+                updateHistoryDisplay();
+                updateTimerDisplay();
+            }
+        }
+
+        function resetGameState() {
+            gameState.team1.score = 0;
+            gameState.team2.score = 0;
+            gameState.currentHalf = 1;
+            gameState.timeRemaining = 450;
+            gameState.bonusActive = false;
+            gameState.bonusTeam = null;
+            gameState.scoreHistory = [];
+            gameState.questionCount = 0;
+            hideBonusSection();
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Space bar to start/stop timer
+            if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+                e.preventDefault();
+                if (gameState.timerRunning) {
+                    stopTimer();
+                } else {
+                    startTimer();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
