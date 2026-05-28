@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#1a56a0">
+    <title>KYC Camp Med Tracker</title>
+    <link rel="stylesheet" href="camper-meds.css">
+</head>
+<body>
+
+    <header class="app-header">
+        <div class="header-content">
+            <div class="header-brand">
+                <span class="header-cross">✚</span>
+                <div>
+                    <div class="header-title">KYC Med Tracker</div>
+                    <div class="header-subtitle">Kentucky Church of God Camp</div>
+                </div>
+            </div>
+            <div class="header-clock" id="headerClock"></div>
+        </div>
+    </header>
+
+    <main class="app-main" id="appMain">
+        <div class="loading-state">Loading...</div>
+    </main>
+
+    <nav class="bottom-nav" id="bottomNav">
+        <button class="nav-btn active" data-view="dashboard">
+            <span class="nav-icon">📋</span>
+            <span class="nav-label">Today</span>
+        </button>
+        <button class="nav-btn" data-view="campers">
+            <span class="nav-icon">👥</span>
+            <span class="nav-label">Campers</span>
+        </button>
+        <button class="nav-btn" data-view="scanner">
+            <span class="nav-icon">📷</span>
+            <span class="nav-label">Scan</span>
+        </button>
+        <button class="nav-btn" data-view="reports">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Reports</span>
+        </button>
+    </nav>
+
+    <!-- Modal overlay -->
+    <div id="modalOverlay" class="modal-overlay" onclick="handleOverlayClick(event)">
+        <div id="modalBox" class="modal-box"></div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" crossorigin="anonymous"></script>
+    <script src="camper-meds.js"></script>
+</body>
+</html>
