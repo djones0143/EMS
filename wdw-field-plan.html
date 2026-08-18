@@ -154,6 +154,17 @@
   .section-title .idx{ background:var(--ink); color:var(--paper-card); border-radius:4px; padding:2px 6px; font-size:10.5px; }
   .section-title::after{ content:""; flex:1; border-top:1px solid var(--line); }
 
+  /* ── Live weather status ─────────────────────────────────────── */
+  .wx-status{ margin-bottom:8px; }
+  .wx-tag{
+    font-family:'IBM Plex Mono'; font-size:10px; letter-spacing:0.04em; font-weight:600;
+    padding:3px 7px; border-radius:4px; display:inline-block;
+  }
+  .wx-tag.wx-live{ background:var(--teal-soft); color:#1D4E4A; }
+  .wx-tag.wx-fallback{ background:var(--coral-soft); color:#8C3423; }
+  .wx-tag.wx-loading{ background:var(--paper-deep); color:var(--ink-soft); }
+  .board .wx-tag{ background:rgba(246,228,194,0.16); color:var(--gold-soft); }
+
   /* ── Legend ───────────────────────────────────────────────────── */
   .legend{ display:flex; flex-wrap:wrap; gap:6px 14px; margin-bottom:6px; }
   .legend .item{ display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ink-soft); }
@@ -334,7 +345,7 @@ const ICON = {
    ══════════════════════════════════════════════════════════════════════ */
 const DAYS = [
   {
-    key:"tue", park:"Hollywood Studios", date:"Tue Aug 18", short:"HS",
+    key:"tue", iso:"2026-08-18", park:"Hollywood Studios", date:"Tue Aug 18", short:"HS",
     high:96, rain:60, stormNote:"Storms likely after 11 AM", eveningNote:"Storms likely before 11 PM — Fantasmic! at real risk",
     gates:"8:30 Early Entry · 9:00 Open", closeShow:"WWoA 9:00 PM · Fantasmic (late) 10:30 PM",
     boardNote:"Slinky Dog Dash is the only major ride here that closes for lightning. Rise of the Resistance is indoor and can wait. That's why the order below is inverted from the usual advice.",
@@ -378,7 +389,7 @@ const DAYS = [
     indoor:["Rise of the Resistance, Tower of Terror, Rock 'n' Roller Coaster, Millennium Falcon, Runaway Railway, Toy Story Mania, Star Tours — all fully indoor","Frozen Sing-Along, Disney Jr. Live, Walt Disney Presents, Disney Villains: Unfairly Ever After — seated, A/C shows that don't cancel for weather","Docking Bay 7 and ABC Commissary have real indoor seating; Woody's Lunch Box and Ronto Roasters are outdoor only","What you lose: Slinky Dog Dash — which is exactly why it's first at rope drop"],
   },
   {
-    key:"wed", park:"Epcot", date:"Wed Aug 19", short:"EP",
+    key:"wed", iso:"2026-08-19", park:"Epcot", date:"Wed Aug 19", short:"EP",
     high:96, rain:70, stormNote:"Storms likely after 8 AM — earliest onset of the week", eveningNote:"Storms mainly before 8 PM — decent odds Luminous runs",
     gates:"8:30 Early Entry · 9:00 Open", closeShow:"Luminous ~9:00 PM",
     boardNote:"Epcot is the best rain park at Disney World. Test Track is essentially the only ride that closes for lightning — everything else, including Guardians, keeps running.",
@@ -415,7 +426,7 @@ const DAYS = [
     indoor:["Guardians, Soarin', Mission: SPACE, Frozen Ever After, Remy's, Spaceship Earth, Living with the Land, The Seas with Nemo, Gran Fiesta Tour — all storm-proof","The pavilion films (Impressions de France, Canada Far and Wide, Reflections of China, American Adventure) are 15–20 min, seated, A/C, rarely a wait","Turtle Talk with Crush is the single best indoor thing for a toddler here","Mexico's entire pavilion is indoors — boat ride, shops, restaurants under one roof","What you lose: Test Track — which is why it's first at rope drop"],
   },
   {
-    key:"thu", park:"Magic Kingdom", date:"Thu Aug 20", short:"MK",
+    key:"thu", iso:"2026-08-20", park:"Magic Kingdom", date:"Thu Aug 20", short:"MK",
     high:95, rain:60, stormNote:"Storms likely after 2 PM — driest morning of the trip", eveningNote:"Storms mainly before 8 PM — good odds for fireworks",
     gates:"8:30 Early Entry · 9:00 Open", closeShow:"Happily Ever After 9:00 PM",
     boardNote:"Magic Kingdom loses more rides to lightning than any other park — about 7. Lucky alignment: this is also your driest morning. Front-load every outdoor ride before 2 PM.",
@@ -452,7 +463,7 @@ const DAYS = [
     indoor:["Haunted Mansion, Pirates, Peter Pan, small world, Winnie the Pooh, Little Mermaid, Space Mountain, Buzz Lightyear — all storm-proof; TRON usually keeps running too","Mickey's PhilharMagic, Enchanted Tales with Belle, Monsters Inc. Laugh Floor, Country Bears, Carousel of Progress — seated indoor shows","Columbia Harbour House (go upstairs), Cosmic Ray's, Pinocchio Village Haus — real indoor A/C seating","What you lose after 2 PM: Seven Dwarfs, Big Thunder, Dumbo, Barnstormer, often Tiana's — all scheduled before 2 for exactly that reason"],
   },
   {
-    key:"fri", park:"Animal Kingdom", date:"Fri Aug 21", short:"AK",
+    key:"fri", iso:"2026-08-21", park:"Animal Kingdom", date:"Fri Aug 21", short:"AK",
     high:94, rain:60, stormNote:"Storms likely — no clear dry window given", eveningNote:"Storms likely into the night",
     gates:"8:30 Early Entry · 9:00 Open", closeShow:"Tree of Life Awakenings at dusk (check close time)",
     boardNote:"Your hardest weather day. No clean dry window, and Animal Kingdom has the thinnest indoor bench of any park. Go in with backups already picked.",
@@ -487,6 +498,41 @@ const DAYS = [
     indoor:["Avatar Flight of Passage and Na'vi River Journey — both fully indoor. Flight of Passage moved to morning for line length; Na'vi is your afternoon storm hold","Festival of the Lion King and It's Tough to Be a Bug — indoor shows, your best shelter here","Rafiki's Planet Watch — an underused rainy-evening asset, indoor Conservation Station","Satu'li Canteen and Pizzafari — indoor A/C; Flame Tree is covered-outdoor only","What you lose: Expedition Everest and Kali River Rapids — both scheduled at 10:40, before the risk window"],
   },
 ];
+
+/* ══════════════════════════════════════════════════════════════════════
+   LIVE WEATHER — Open-Meteo, no key required, CORS-open
+   ══════════════════════════════════════════════════════════════════════ */
+const WX_LAT = 28.3852, WX_LON = -81.5639; // Walt Disney World
+let wxStatus = { state:"loading", updated:null }; // loading | live | fallback
+
+function dayHigh(day){ return day.liveHigh ?? day.high; }
+function dayRain(day){ return day.liveRain ?? day.rain; }
+
+async function fetchLiveWeather(){
+  try{
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${WX_LAT}&longitude=${WX_LON}`
+      + `&daily=temperature_2m_max,precipitation_probability_max&temperature_unit=fahrenheit`
+      + `&timezone=America%2FNew_York&forecast_days=16`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error(`weather fetch failed: ${res.status}`);
+    const data = await res.json();
+    const rowByDate = {};
+    data.daily.time.forEach((iso,i)=>{ rowByDate[iso] = i; });
+    let matched = 0;
+    DAYS.forEach(day=>{
+      const i = rowByDate[day.iso];
+      if(i===undefined) return;
+      day.liveHigh = Math.round(data.daily.temperature_2m_max[i]);
+      day.liveRain = Math.round(data.daily.precipitation_probability_max[i]);
+      matched++;
+    });
+    wxStatus = matched>0 ? { state:"live", updated:new Date() } : { state:"fallback", updated:null };
+  }catch(e){
+    console.error("live weather unavailable, using planning estimates", e);
+    wxStatus = { state:"fallback", updated:null };
+  }
+  renderAll();
+}
 
 const CHAR_LEVI = [
   {who:"Disney Jr.",where:"Hollywood Studios — Mickey Mouse Clubhouse Live! show, plus the Disney Jr. Zone (opened May 2026)",note:"Best character value of the trip. A real interactive show, not a photo line."},
@@ -571,17 +617,26 @@ function renderTabs(){
                  {key:'characters', label:'CAST', short:'★'}, {key:'prep', label:'PREP', short:'✓'}];
   tabs.innerHTML = items.map(it=>{
     const day = it.day;
-    const temp = day ? `${day.high}°` : '';
+    const temp = day ? `${dayHigh(day)}°` : '';
     const dateShort = day ? day.date.split(' ')[0]+' '+day.date.split(' ')[2] : (it.key==='overview'?'Aug 18–21':'—');
     return `<div class="stub" data-key="${it.key}" data-active="${active===it.key}">
       <span class="d">${dateShort}</span>
       <span class="p">${it.label}</span>
-      ${day?`<span class="tempchip">${temp} · ${day.rain}%</span>`:''}
+      ${day?`<span class="tempchip">${temp} · ${dayRain(day)}%</span>`:''}
     </div>`;
   }).join('');
   tabs.querySelectorAll('.stub').forEach(el=>{
     el.addEventListener('click', ()=>{ active = el.dataset.key; location.hash = active; renderAll(); window.scrollTo({top:0,behavior:'smooth'}); });
   });
+}
+
+function wxStatusLine(){
+  if(wxStatus.state==="loading") return `<span class="wx-tag wx-loading">FETCHING LIVE FORECAST…</span>`;
+  if(wxStatus.state==="live"){
+    const t = wxStatus.updated.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    return `<span class="wx-tag wx-live">LIVE FORECAST · updated ${t}</span>`;
+  }
+  return `<span class="wx-tag wx-fallback">LIVE FORECAST UNAVAILABLE · showing planning estimate</span>`;
 }
 
 function chip(tag){
@@ -604,12 +659,13 @@ function renderOverview(){
     </div>
 
     <div class="section-title"><span class="idx">01</span>Weekly outlook</div>
+    <div class="wx-status">${wxStatusLine()}</div>
     <div class="outlook">
       ${DAYS.map(d=>`
         <button data-jump="${d.key}">
           <div class="p">${d.short}</div>
-          <div class="t">${d.high}°</div>
-          <div class="r">${d.rain}% rain</div>
+          <div class="t">${dayHigh(d)}°</div>
+          <div class="r">${dayRain(d)}% rain</div>
         </button>
       `).join('')}
     </div>
@@ -662,12 +718,12 @@ function renderDay(day){
     <div class="board">
       <span class="tag">CONDITIONS</span>
       <div class="board-grid">
-        <div class="cell"><div class="k">High</div><div class="v">${day.high}°F</div></div>
-        <div class="cell"><div class="k">Rain chance</div><div class="v">${day.rain}%</div></div>
+        <div class="cell"><div class="k">High</div><div class="v">${dayHigh(day)}°F</div></div>
+        <div class="cell"><div class="k">Rain chance</div><div class="v">${dayRain(day)}%</div></div>
         <div class="cell"><div class="k">Gates</div><div class="v" style="font-size:12.5px;">${day.gates}</div></div>
         <div class="cell"><div class="k">Evening</div><div class="v" style="font-size:12.5px;">${day.closeShow}</div></div>
       </div>
-      <div class="board-note"><b>Storm timing:</b> ${day.stormNote}. ${day.eveningNote}.<br><br>${day.boardNote}</div>
+      <div class="board-note">${wxStatusLine()}<br><br><b>Storm timing:</b> ${day.stormNote}. ${day.eveningNote}.<br><br>${day.boardNote}</div>
     </div>
 
     <div class="section-title"><span class="idx">RUN</span>Timeline</div>
@@ -879,6 +935,7 @@ function renderAll(){
   if(h && (h==='overview'||h==='characters'||h==='prep'||DAYS.some(d=>d.key===h))) active = h;
   await loadChecked();
   renderAll();
+  fetchLiveWeather(); // re-renders once live data (or fallback) resolves
 })();
 window.addEventListener('hashchange', ()=>{
   const h = location.hash.replace('#','');
