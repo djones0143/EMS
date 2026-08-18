@@ -164,6 +164,11 @@
   .wx-tag.wx-fallback{ background:var(--coral-soft); color:#8C3423; }
   .wx-tag.wx-loading{ background:var(--paper-deep); color:var(--ink-soft); }
   .board .wx-tag{ background:rgba(246,228,194,0.16); color:var(--gold-soft); }
+  .wx-link{
+    font-family:'IBM Plex Mono'; font-size:10px; font-weight:600; letter-spacing:0.02em;
+    color:var(--coral); text-decoration:underline; text-underline-offset:2px;
+  }
+  .board .wx-link{ color:var(--gold-soft); }
 
   /* ── Legend ───────────────────────────────────────────────────── */
   .legend{ display:flex; flex-wrap:wrap; gap:6px 14px; margin-bottom:6px; }
@@ -636,7 +641,9 @@ function wxStatusLine(){
     const t = wxStatus.updated.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
     return `<span class="wx-tag wx-live">LIVE FORECAST · updated ${t}</span>`;
   }
-  return `<span class="wx-tag wx-fallback">LIVE FORECAST UNAVAILABLE · showing planning estimate</span>`;
+  const nws = `https://forecast.weather.gov/MapClick.php?lat=${WX_LAT}&lon=${WX_LON}`;
+  return `<span class="wx-tag wx-fallback">LIVE FORECAST UNAVAILABLE · showing planning estimate</span> `
+    + `<a class="wx-link" href="${nws}" target="_blank" rel="noopener">Check current forecast ↗</a>`;
 }
 
 function chip(tag){
