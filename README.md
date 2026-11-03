@@ -194,3 +194,10 @@ For issues or questions about:
 - **Protocol accuracy**: Contact Kentucky Board of Emergency Medical Services
 - **Technical issues**: Submit an issue in the repository
 - **Feature requests**: Submit an issue with the "enhancement" label
+
+---
+
+## Also in this repository
+
+**[Deer Movement Forecast](deer-forecast/)**: a separate app that forecasts whitetail deer movement from
+your location, barometric pressure, weather, moon and rut phase. See `deer-forecast/README.md`.

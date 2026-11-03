@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="Whitetail deer movement forecast from your location, barometric pressure, weather, moon and rut phase.">
+    <meta name="theme-color" content="#1f2a1c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Deer Movement Forecast</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="app-header">
+        <div class="brand">
+            <img src="icon.svg" alt="" width="32" height="32">
+            <div>
+                <h1>Deer Movement Forecast</h1>
+                <p id="locationName" class="location">Locating…</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button id="gpsBtn" class="icon-btn" title="Use my current location" aria-label="Use my current location">📍</button>
+            <button id="searchBtn" class="icon-btn" title="Search a place" aria-label="Search for a place">🔎</button>
+            <button id="refreshBtn" class="icon-btn" title="Refresh forecast" aria-label="Refresh forecast">⟳</button>
+        </div>
+    </header>
+
+    <section id="searchPanel" class="search-panel" hidden>
+        <form id="searchForm" autocomplete="off">
+            <input id="searchInput" type="search" placeholder="City or ZIP code" aria-label="City or ZIP code">
+            <button type="submit">Search</button>
+        </form>
+        <ul id="searchResults" class="search-results"></ul>
+    </section>
+
+    <div id="status" class="status" role="status" hidden></div>
+
+    <main id="main" hidden>
+        <section class="card now-card">
+            <div class="now-score">
+                <svg viewBox="0 0 120 120" class="gauge" aria-hidden="true">
+                    <circle cx="60" cy="60" r="50" class="gauge-track"></circle>
+                    <circle cx="60" cy="60" r="50" class="gauge-fill" id="gaugeFill"></circle>
+                </svg>
+                <div class="gauge-label">
+                    <span id="nowScore" class="score-num">--</span>
+                    <span id="nowRating" class="score-rating">--</span>
+                </div>
+            </div>
+            <div class="now-body">
+                <h2>Movement right now</h2>
+                <p id="nowTime" class="muted"></p>
+                <ul id="nowFactors" class="factors"></ul>
+            </div>
+        </section>
+
+        <section class="card conditions">
+            <div class="cond cond-pressure">
+                <span class="cond-label">Barometer</span>
+                <span class="cond-value"><span id="curPressure">--</span> <small>inHg</small></span>
+                <span id="curTrend" class="cond-sub">--</span>
+            </div>
+            <div class="cond">
+                <span class="cond-label">Temp</span>
+                <span id="curTemp" class="cond-value">--</span>
+                <span id="curSky" class="cond-sub"></span>
+            </div>
+            <div class="cond">
+                <span class="cond-label">Wind</span>
+                <span id="curWind" class="cond-value">--</span>
+                <span id="curGust" class="cond-sub"></span>
+            </div>
+            <div class="cond">
+                <span class="cond-label">Moon</span>
+                <span id="curMoon" class="cond-value">--</span>
+                <span id="curMoonSub" class="cond-sub"></span>
+            </div>
+            <div class="cond cond-rut">
+                <span class="cond-label">Rut phase</span>
+                <span id="curRut" class="cond-value small">--</span>
+                <span id="curRutSub" class="cond-sub"></span>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>Best times to be in the stand</h2>
+            <div id="bestTimes" class="best-times"></div>
+        </section>
+
+        <section class="card chart-card">
+            <div class="chart-head">
+                <h2>Next 72 hours</h2>
+                <p class="muted small">Tap or use ← → to inspect an hour. Shaded = night.</p>
+            </div>
+            <div id="chartScroll" class="chart-scroll" tabindex="0" aria-label="Hourly movement score and barometric pressure chart">
+                <div id="chart"></div>
+            </div>
+            <div id="hourDetail" class="hour-detail"></div>
+            <details class="table-view">
+                <summary>Show as table</summary>
+                <div class="table-wrap"><table id="hourTable"></table></div>
+            </details>
+        </section>
+
+        <section class="card">
+            <h2>Daily outlook</h2>
+            <div id="daily" class="daily"></div>
+        </section>
+
+        <section class="card settings">
+            <h2>Settings</h2>
+            <label class="setting">
+                <span>Peak rut date for your area</span>
+                <span class="rut-inputs">
+                    <select id="rutMonth" aria-label="Peak rut month">
+                        <option value="10">Oct</option>
+                        <option value="11">Nov</option>
+                        <option value="12">Dec</option>
+                        <option value="01">Jan</option>
+                        <option value="02">Feb</option>
+                    </select>
+                    <input id="rutDay" type="number" min="1" max="31" inputmode="numeric" aria-label="Peak rut day">
+                </span>
+            </label>
+            <p class="muted small">Most of the Midwest, Northeast and Kentucky peak around Nov 5–15. Parts of the
+                Deep South peak in December–January. Check your state wildlife agency's breeding-date map.</p>
+        </section>
+
+        <p class="footnote">
+            Weather &amp; pressure: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>.
+            Moon times calculated on-device. The score is a heuristic based on commonly reported deer behavior —
+            local food sources, hunting pressure and terrain matter more. Updated <span id="updatedAt"></span>.
+        </p>
+    </main>
+
+    <script src="astro.js"></script>
+    <script src="forecast.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
