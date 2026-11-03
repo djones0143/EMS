@@ -1,8 +1,8 @@
 // Synthetic Open-Meteo response: a cold front passes ~30 h after `now`.
 // Used by the unit tests and for previewing the UI without network access.
-function makeWeather(nowMs, { lat = 38.25, lon = -85.76 } = {}) {
+function makeWeather(nowMs, { lat = 38.25, lon = -85.76, utcOffsetHours = -5 } = {}) {
     const HOUR = 3600 * 1000;
-    const offset = -5 * 3600; // EST, matches America/New_York in November
+    const offset = utcOffsetHours * 3600; // -5 EST (Nov), -4 EDT (Apr) for America/New_York
     const localMidnight = (ms) => Math.floor((ms / 1000 + offset) / 86400) * 86400 - offset;
     const start = localMidnight(nowMs) - 2 * 86400;
     const days = 7;

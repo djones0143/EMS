@@ -101,3 +101,65 @@ test('preferred wind direction raises right-wind hours and lowers wrong-wind hou
     const win = nw.daily.flatMap((d) => d.windows).find((x) => x.windMatch);
     assert.ok(win && win.windDir != null);
 });
+
+// ---- Species ---------------------------------------------------------------
+
+const APRIL = Date.UTC(2026, 3, 25, 13, 20); // Apr 25 2026, 9:20 EDT
+const springWx = () => makeWeather(APRIL, { utcOffsetHours: -4 });
+
+test('turkey: roosted at night, peak after sunrise, legal light ends at sunset', () => {
+    const f = DF.buildForecast(springWx(), { species: 'turkey', now: APRIL });
+    assert.strictEqual(f.species.id, 'turkey');
+    const night = f.hours.filter((h) => h.hour === 2);
+    assert.ok(night.every((h) => h.score < 15 && /roost/i.test(h.factors[0].label)));
+    const day = f.daily[1];
+    assert.ok(day.am > day.pm, `am ${day.am} vs pm ${day.pm}`);
+    const afterSunset = f.hours.find((h) => h.time >= day.sunset && h.dateKey === day.dateKey);
+    assert.strictEqual(afterSunset.legalLight, false);
+    for (const w of day.windows) assert.ok(w.end <= day.sunset, "turkey window ends by sunset");
+});
+
+test('turkey: nesting phase and spring wind/rain sensitivity', () => {
+    const f = DF.buildForecast(springWx(), { species: 'turkey', now: APRIL, seasonPeak: '04-20' });
+    assert.strictEqual(f.current.season.key, 'nesting');
+    const rainy = f.hours.find((h) => h.precip >= 0.1 && h.legalLight);
+    assert.ok(rainy.factors.some((x) => /rain/i.test(x.label) && x.effect === 'down'));
+    assert.ok(rainy.factors.some((x) => /wind|breezy/i.test(x.label) && x.effect === 'down'));
+    assert.strictEqual(DF.turkeyPhase(-130, { month: 10 }).key, 'fall');
+    assert.strictEqual(DF.turkeyPhase(-5, { month: 4 }).key, 'breeding');
+});
+
+test('turkey ignores stand wind direction and solunar periods', () => {
+    const f = DF.buildForecast(springWx(), { species: 'turkey', now: APRIL, windDirs: ['NW'] });
+    assert.ok(f.hours.every((h) => h.windMatch === null));
+    assert.ok(f.hours.every((h) => !h.factors.some((x) => /solunar|stand/i.test(x.label))));
+    assert.strictEqual(f.species.usesWindDir, false);
+});
+
+test('elk: heat suppresses movement more than deer; bugle phase from peak date', () => {
+    const w = makeWeather(NOW);
+    const hot = JSON.parse(JSON.stringify(w));
+    hot.hourly.temperature_2m = hot.hourly.temperature_2m.map((t) => t + 30);
+    const deer = DF.buildForecast(hot, { species: 'deer', seasonPeak: '06-01', now: NOW });
+    const elk = DF.buildForecast(hot, { species: 'elk', seasonPeak: '06-01', now: NOW });
+    const i = deer.hours.findIndex((h) => h.daylight && h.temp >= 75);
+    assert.ok(elk.hours[i].factors.some((x) => /timber/.test(x.label)));
+    const ratio = (f) => f.hours[i].score;
+    assert.ok(ratio(elk) < ratio(deer), `elk ${ratio(elk)} vs deer ${ratio(deer)}`);
+    assert.strictEqual(DF.elkPhase(0).key, 'peak');
+    assert.strictEqual(DF.elkPhase(-15).key, 'pre');
+    const sep = Date.UTC(2026, 8, 25, 15);
+    const e2 = DF.buildForecast(makeWeather(sep, { utcOffsetHours: -4 }), { species: 'elk', now: sep });
+    assert.strictEqual(e2.current.season.key, 'peak');
+});
+
+test('elk punishes a wrong wind harder than deer', () => {
+    const w = makeWeather(NOW);
+    const opts = { seasonPeak: '06-01', now: NOW, windDirs: ['NW'] };
+    const d0 = DF.buildForecast(w, { ...opts, species: 'deer', windDirs: [] });
+    const d1 = DF.buildForecast(w, { ...opts, species: 'deer' });
+    const e0 = DF.buildForecast(w, { ...opts, species: 'elk', windDirs: [] });
+    const e1 = DF.buildForecast(w, { ...opts, species: 'elk' });
+    const i = d1.hours.findIndex((h) => h.windMatch === 'bad' && h.daylight);
+    assert.ok(e1.hours[i].score / e0.hours[i].score < d1.hours[i].score / d0.hours[i].score);
+});

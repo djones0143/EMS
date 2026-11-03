@@ -1,7 +1,9 @@
 /*
- * Whitetail deer movement model.
+ * Game movement model for whitetail deer, elk and wild turkey.
  *
- * Produces an hourly 0-100 "movement score" from:
+ * Each species has a profile (see SPECIES) with its own time-of-day pattern,
+ * weather weights, legal hours and season phases. For deer, the hourly
+ * 0-100 "movement score" comes from:
  *   - time of day relative to sunrise/sunset (deer are crepuscular)
  *   - barometric pressure level and 3-hour trend, plus cold-front passage
  *   - temperature change vs. 24 hours earlier, and unseasonable warmth
@@ -42,11 +44,11 @@
         };
     }
 
-    // ---- Rut -----------------------------------------------------------------
+    // ---- Season phase (rut / bugle / gobbling) -------------------------------
 
-    /** Days from the peak-rut date ("MM-DD") to the given local date (nearest season). */
-    function daysFromRutPeak(parts, rutPeak) {
-        const [pm, pd] = (rutPeak || '11-12').split('-').map(Number);
+    /** Days from a season peak date ("MM-DD") to the given local date (nearest year). */
+    function daysFromPeak(parts, peak) {
+        const [pm, pd] = (peak || '11-12').split('-').map(Number);
         const today = Date.UTC(parts.year, parts.month - 1, parts.day);
         let best = Infinity;
         for (const y of [parts.year - 1, parts.year, parts.year + 1]) {
@@ -56,8 +58,8 @@
         return best;
     }
 
-    function rutPhase(daysFromPeak) {
-        const d = daysFromPeak;
+    function rutPhase(daysFromPeakValue) {
+        const d = daysFromPeakValue;
         if (d >= -35 && d < -21) return { key: 'pre', name: 'Pre-rut', daytime: 0.05, mult: 1.0,
             note: 'Bucks laying down rubs and scrapes; patterns still mostly food-to-bed.' };
         if (d >= -21 && d < -7) return { key: 'seeking', name: 'Seeking phase', daytime: 0.14, mult: 1.04,
@@ -70,6 +72,32 @@
             note: 'Unbred does and doe fawns come into estrus — a short secondary flurry.' };
         return { key: 'none', name: 'Outside the rut', daytime: 0, mult: 1.0,
             note: 'Movement is driven mostly by food, cover and weather.' };
+    }
+
+    function elkPhase(d) {
+        if (d >= -25 && d < -10) return { key: 'pre', name: 'Pre-rut — bugling starts', daytime: 0.05, mult: 1.03,
+            note: 'Bulls bugling more each day and starting to gather cows.' };
+        if (d >= -10 && d <= 10) return { key: 'peak', name: 'Peak rut (bugling)', daytime: 0.18, mult: 1.08,
+            note: 'Bulls herding cows and answering bugles — cool, calm mornings are best and calling works.' };
+        if (d > 10 && d <= 25) return { key: 'post', name: 'Late rut', daytime: 0.05, mult: 1.0,
+            note: 'Bugling tapers off; satellite bulls still hunting for cows.' };
+        return { key: 'none', name: 'Outside the rut', daytime: 0, mult: 1.0,
+            note: 'Elk follow food, water and security cover; hunting pressure pushes them into dark timber.' };
+    }
+
+    function turkeyPhase(d, parts) {
+        if (d >= -40 && d < -15) return { key: 'early', name: 'Early spring — flocks breaking up', daytime: 0, mult: 1.0,
+            note: 'Gobblers fired up on the roost while birds split from winter flocks.' };
+        if (d >= -15 && d < 0) return { key: 'breeding', name: 'Peak breeding — gobblers henned up', daytime: 0, mult: 0.96,
+            note: 'Lots of gobbling at daylight, but hens lead toms away — set up between the roost and strut zones.' };
+        if (d >= 0 && d <= 21) return { key: 'nesting', name: 'Hens nesting — prime calling', daytime: 0.15, mult: 1.10,
+            note: 'Hens leave gobblers mid-morning; lonely toms answer calls, often 9 am – 1 pm.' };
+        if (d > 21 && d <= 40) return { key: 'late', name: 'Late spring', daytime: 0.05, mult: 0.95,
+            note: 'Gobbling tapers off — hunt known strut zones quietly and be patient.' };
+        if (parts.month >= 9 || parts.month === 1) return { key: 'fall', name: 'Fall flock season', daytime: 0.05, mult: 1.0,
+            note: 'Birds travel in family flocks — locate, scatter and call them back together.' };
+        return { key: 'none', name: 'Outside turkey season', daytime: 0, mult: 1.0,
+            note: 'Birds roost, feed and dust on a daily routine; weather patterns still apply.' };
     }
 
     // ---- Factor helpers ------------------------------------------------------
@@ -88,12 +116,12 @@
         return [0.80, 'Very low pressure — stormy conditions'];
     }
 
-    function pressureTrendFactor(trend3, rainSoon, rainingNow) {
+    function pressureTrendFactor(trend3, rainSoon, rainingNow, Noun) {
         if (trend3 >= 0.06) return [1.15, 'Pressure rising fast — classic post-front movement'];
         if (trend3 >= 0.02) return [1.10, 'Pressure rising'];
         if (trend3 > -0.02) return [1.00, 'Pressure steady'];
         if (trend3 > -0.06) return [0.93, 'Pressure falling slowly'];
-        if (rainSoon && !rainingNow) return [1.10, 'Pressure dropping fast ahead of a front — deer often feed before the storm'];
+        if (rainSoon && !rainingNow) return [1.10, `Pressure dropping fast ahead of a front — ${Noun} often feed before the storm`];
         return [0.85, 'Pressure falling fast'];
     }
 
@@ -105,7 +133,7 @@
         return [0.88, `Much warmer than yesterday (+${Math.round(dT)}°F)`];
     }
 
-    function tempAbsoluteFactor(t, daylight) {
+    function deerTempFactor(t, daylight) {
         if (!daylight) return [1.00, null];
         if (t >= 75) return [0.75, `Hot (${Math.round(t)}°F) — deer bed down in shade`];
         if (t >= 65) return [0.85, `Warm (${Math.round(t)}°F) — daytime movement suppressed`];
@@ -115,21 +143,52 @@
         return [1.00, null];
     }
 
-    function windFactor(speed, gust) {
+    function elkTempFactor(t, daylight) {
+        if (!daylight) return [1.00, null];
+        if (t >= 75) return [0.60, `Hot (${Math.round(t)}°F) — elk bed in dark timber early`];
+        if (t >= 65) return [0.72, `Warm (${Math.round(t)}°F) — elk overheat easily and bed early`];
+        if (t >= 55) return [0.88, `Mild (${Math.round(t)}°F) — expect a short morning window`];
+        if (t <= 5) return [0.95, `Bitter cold (${Math.round(t)}°F)`];
+        if (t <= 40) return [1.07, `Cold (${Math.round(t)}°F) — elk feed later into the morning`];
+        return [1.00, null];
+    }
+
+    function windFactor(speed, gust, noun) {
         let f; let label;
         if (speed <= 10) { f = 1.00; label = `Light wind (${Math.round(speed)} mph)`; }
         else if (speed <= 15) { f = 0.92; label = `Breezy (${Math.round(speed)} mph)`; }
-        else if (speed <= 20) { f = 0.82; label = `Windy (${Math.round(speed)} mph) — deer hold tight`; }
-        else { f = 0.70; label = `Strong wind (${Math.round(speed)} mph) — deer hunker down`; }
+        else if (speed <= 20) { f = 0.82; label = `Windy (${Math.round(speed)} mph) — ${noun} hold tight`; }
+        else { f = 0.70; label = `Strong wind (${Math.round(speed)} mph) — ${noun} hunker down`; }
         if (gust >= 30) { f *= 0.92; label += `, gusts ${Math.round(gust)}`; }
         return [f, label];
     }
 
-    function precipFactor(now, prev4max) {
+    function precipFactor(now, prev4max, noun) {
         if (now >= 0.15) return [0.65, 'Heavy rain'];
         if (now >= 0.04) return [0.80, 'Steady rain'];
         if (now > 0) return [0.97, 'Light drizzle — little effect'];
-        if (prev4max >= 0.04) return [1.12, 'Rain just ended — deer get up to feed'];
+        if (prev4max >= 0.04) return [1.12, `Rain just ended — ${noun} get up to feed`];
+        return [1.00, null];
+    }
+
+    // Turkeys: sight and sound hunters' quarry — wind and rain matter most.
+    function turkeyWindFactor(speed, gust) {
+        let f; let label;
+        const mph = Math.round(speed);
+        if (speed <= 5) { f = 1.10; label = `Calm (${mph} mph) — gobbles carry and birds hear your calls`; }
+        else if (speed <= 10) { f = 1.00; label = `Light wind (${mph} mph)`; }
+        else if (speed <= 15) { f = 0.85; label = `Breezy (${mph} mph) — birds can't hear well and get nervous`; }
+        else if (speed <= 20) { f = 0.72; label = `Windy (${mph} mph) — little gobbling, birds in sheltered hollows`; }
+        else { f = 0.60; label = `Strong wind (${mph} mph) — birds hunker in sheltered hollows`; }
+        if (gust >= 25) { f *= 0.92; label += `, gusts ${Math.round(gust)}`; }
+        return [f, label];
+    }
+
+    function turkeyPrecipFactor(now, prev4max) {
+        if (now >= 0.15) return [0.65, 'Heavy rain — birds hunker down'];
+        if (now >= 0.04) return [0.80, 'Rain — birds go quiet and move to open fields'];
+        if (now > 0) return [0.92, 'Drizzle — check open fields and pastures'];
+        if (prev4max >= 0.04) return [1.10, 'Rain just ended — birds head to fields to dry off and feed'];
         return [1.00, null];
     }
 
@@ -154,12 +213,13 @@
         return 'bad';
     }
 
-    function windDirFactor(match, dir) {
+    function windDirFactor(match, dir, profile) {
         const from = compass(dir);
+        const { good, ok, bad } = profile.windDirWeights;
         switch (match) {
-            case 'good': return [1.10, `${from} wind — right wind for your stand`];
-            case 'ok': return [1.03, `${from} wind — close to your stand's wind`];
-            case 'bad': return [0.85, `${from} wind — wrong wind for your stand; deer may smell you`];
+            case 'good': return [good, `${from} wind — right wind for your stand`];
+            case 'ok': return [ok, `${from} wind — close to your stand's wind`];
+            case 'bad': return [bad, `${from} wind — wrong wind for your stand; ${profile.noun} may smell you`];
             case 'calm': return [1.00, 'Calm — wind direction variable, watch thermals'];
             default: return [1.00, null];
         }
@@ -178,13 +238,145 @@
         return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
     }
 
+    // ---- Species profiles ----------------------------------------------------
+    //
+    // baseline(): time-of-day activity (0..~0.75) before weather adjustments.
+    // weather():  multiplies in the species' weather factors via add(group, [mult, label]).
+
+    function crepuscularBaseline(ctx, o) {
+        const { t, sunrise, sunset, daylight, phase } = ctx;
+        const floor = daylight ? o.dayFloor + phase.daytime : o.nightFloor;
+        const peak = Math.max(gauss(t, sunrise + o.amShift, o.amSigma), gauss(t, sunset - o.pmShift, o.pmSigma));
+        const base = floor + (0.72 - floor) * peak;
+        let label;
+        if (peak > 0.6) label = t < (sunrise + sunset) / 2 ? 'Prime time — around sunrise' : 'Prime time — around sunset';
+        else if (daylight) label = phase.daytime > 0.1 ? o.rutMidday : o.midday;
+        else label = `Night — ${o.noun} active, but outside legal shooting light`;
+        return { base, label, prime: peak > 0.6 };
+    }
+
+    function ungulateWeather(ctx, add, profile, tempFactor) {
+        const { h, trend3, rainSoon, rainingNow, minP, dT, prev4, daylight } = ctx;
+        let m = 1;
+        m *= add('pressure', pressureLevelFactor(h.pressure));
+        m *= add('pressure', pressureTrendFactor(trend3, rainSoon, rainingNow, profile.Noun));
+        if (h.pressure - minP >= 0.12 && trend3 > 0 && dT <= -5) {
+            m *= add('pressure', [1.12, 'Cold front has passed — one of the best triggers for daylight movement']);
+        }
+        m *= add('temp', tempChangeFactor(dT));
+        m *= add('temp', tempFactor(h.temp, daylight));
+        m *= add('wind', windFactor(h.wind, h.gust, profile.noun));
+        m *= add('precip', precipFactor(h.precip, prev4, profile.noun));
+        if (daylight && h.cloud >= 80 && !rainingNow) {
+            m *= add('sky', [1.04, `Overcast — ${profile.noun} more comfortable moving in daylight`]);
+        }
+        return m;
+    }
+
+    const SPECIES = {
+        deer: {
+            id: 'deer', name: 'Whitetail', noun: 'deer', Noun: 'Deer',
+            title: 'Whitetail Movement Forecast', scoreLabel: 'Movement',
+            seasonLabel: 'Rut phase', peakLabel: 'Peak rut date for your area', defaultPeak: '11-12',
+            peakHelp: 'Most of the Midwest, Northeast and Kentucky peak around Nov 5–15. Parts of the Deep South ' +
+                'peak in December–January. Check your state wildlife agency\'s breeding-date map.',
+            usesWindDir: true, solunar: true,
+            windDirWeights: { good: 1.10, ok: 1.03, bad: 0.85 },
+            legal: (day) => [day.sunrise - 0.5 * HOUR, day.sunset + 0.5 * HOUR],
+            phase: (d) => rutPhase(d),
+            baseline: (ctx) => crepuscularBaseline(ctx, {
+                dayFloor: 0.20, nightFloor: 0.35, amShift: 0.4, amSigma: 1.1, pmShift: 0.4, pmSigma: 1.1, noun: 'deer',
+                midday: 'Midday — deer typically bedded', rutMidday: 'Midday — but the rut keeps bucks moving'
+            }),
+            weather(ctx, add) { return ungulateWeather(ctx, add, this, deerTempFactor); }
+        },
+
+        elk: {
+            id: 'elk', name: 'Elk', noun: 'elk', Noun: 'Elk',
+            title: 'Elk Movement Forecast', scoreLabel: 'Movement',
+            seasonLabel: 'Rut phase', peakLabel: 'Peak bugle (rut) date', defaultPeak: '09-25',
+            peakHelp: 'Most elk herds, including Kentucky\'s, peak around Sept 20 – Oct 5. High-country herds can ' +
+                'run a week earlier.',
+            usesWindDir: true, solunar: true,
+            // An elk's nose is less forgiving than a deer's.
+            windDirWeights: { good: 1.12, ok: 1.03, bad: 0.80 },
+            legal: (day) => [day.sunrise - 0.5 * HOUR, day.sunset + 0.5 * HOUR],
+            phase: (d) => elkPhase(d),
+            baseline: (ctx) => crepuscularBaseline(ctx, {
+                dayFloor: 0.15, nightFloor: 0.38, amShift: 0.3, amSigma: 1.3, pmShift: 0.3, pmSigma: 1.2, noun: 'elk',
+                midday: 'Midday — elk bedded in timber', rutMidday: 'Midday — rutting bulls may still bugle'
+            }),
+            weather(ctx, add) { return ungulateWeather(ctx, add, this, elkTempFactor); }
+        },
+
+        turkey: {
+            id: 'turkey', name: 'Turkey', noun: 'turkeys', Noun: 'Turkeys',
+            title: 'Turkey Activity Forecast', scoreLabel: 'Activity',
+            seasonLabel: 'Season phase', peakLabel: 'Date hens start nesting', defaultPeak: '04-20',
+            peakHelp: 'In Kentucky and much of the Midwest hens begin nesting around Apr 15–25; the Deep South is ' +
+                '2–3 weeks earlier, the North 1–2 weeks later. Fall dates use the flock-season pattern.',
+            usesWindDir: false, solunar: false,
+            windDirWeights: { good: 1, ok: 1, bad: 1 },
+            // Spring turkey hours in most states end at sunset.
+            legal: (day) => [day.sunrise - 0.5 * HOUR, day.sunset],
+            phase: (d, parts) => turkeyPhase(d, parts),
+            baseline(ctx) {
+                const { t, sunrise, sunset, phase } = ctx;
+                if (t < sunrise - 0.75 || t > sunset) {
+                    return { base: 0.05, label: 'On the roost', prime: false };
+                }
+                const floor = 0.28 + phase.daytime;
+                const gm = gauss(t, sunrise + 0.75, 1.2);
+                const ge = gauss(t, sunset - 1.5, 1.2) * 0.5;
+                const base = floor + (0.75 - floor) * Math.max(gm, ge);
+                let label;
+                if (gm > 0.6) label = 'Prime time — gobbling and fly-down';
+                else if (t < (sunrise + sunset) / 2 + 1) {
+                    label = phase.daytime > 0.1 ? 'Late morning — lonely gobblers answer calls' : 'Midday — birds feeding and loafing';
+                } else label = 'Afternoon — birds feeding toward the roost';
+                return { base, label, prime: gm > 0.6 };
+            },
+            weather(ctx, add) {
+                const { h, trend3, dT, prev4, daylight, morning, phase } = ctx;
+                let m = 1;
+                if (h.pressure >= 30.0) m *= add('pressure', [1.05, 'High pressure — clear, calm mornings mean more gobbling']);
+                else if (h.pressure < 29.8) m *= add('pressure', [0.90, 'Low pressure — birds quieter']);
+                else m *= add('pressure', [1.00, 'Pressure about average']);
+                if (trend3 >= 0.02) m *= add('pressure', [1.05, 'Pressure rising — clearing weather']);
+                else if (trend3 <= -0.06) m *= add('pressure', [0.88, 'Pressure falling fast — birds go quiet ahead of storms']);
+                else if (trend3 <= -0.02) m *= add('pressure', [0.95, 'Pressure falling']);
+                else m *= add('pressure', [1.00, 'Pressure steady']);
+
+                const spring = phase.key !== 'fall' && phase.key !== 'none';
+                if (daylight && h.temp >= 80) m *= add('temp', [0.85, `Hot (${Math.round(h.temp)}°F) — birds loaf in shade`]);
+                else if (spring && morning && h.temp < 32) m *= add('temp', [0.90, `Cold morning (${Math.round(h.temp)}°F) — gobbling starts late`]);
+                else if (spring && dT <= -10) m *= add('temp', [0.93, 'Sharp cold snap — gobbling slows']);
+
+                m *= add('wind', turkeyWindFactor(h.wind, h.gust));
+                m *= add('precip', turkeyPrecipFactor(h.precip, prev4));
+                if (morning && (h.code === 45 || h.code === 48)) m *= add('sky', [0.90, 'Fog — birds stay on the roost longer']);
+                else if (morning && h.cloud < 30 && h.precip === 0) m *= add('sky', [1.04, 'Clear sky — good gobbling morning']);
+                return m;
+            }
+        }
+    };
+
     // ---- Main ----------------------------------------------------------------
 
     /**
      * @param {object} wx  Open-Meteo forecast response (timeformat=unixtime, imperial units).
-     * @param {object} opts { lat, lon, rutPeak: 'MM-DD', windDirs: ['NW', ...], now: ms, hoursAhead: number }
+     * @param {object} opts { lat, lon, species: 'deer'|'elk'|'turkey', seasonPeak: 'MM-DD',
+     *                        windDirs: ['NW', ...], now: ms, hoursAhead: number }
+     *                        (rutPeak is accepted as an alias of seasonPeak)
      */
-    function buildForecast(wx, opts) {
+    function buildForecast(wx, optsIn) {
+        const profile = SPECIES[optsIn.species] || SPECIES.deer;
+        const opts = {
+            ...optsIn,
+            profile,
+            seasonPeak: optsIn.seasonPeak || optsIn.rutPeak || profile.defaultPeak,
+            windDirs: profile.usesWindDir ? optsIn.windDirs : []
+        };
         const tz = wx.timezone;
         const lat = opts.lat ?? wx.latitude;
         const lon = opts.lon ?? wx.longitude;
@@ -250,7 +442,14 @@
                 gust: cur.gust,
                 code: cur.code,
                 moon: { ...moon, ...Astro.moonPhaseName(moon.phase) },
-                rut: { daysFromPeak: daysFromRutPeak(parts, opts.rutPeak), ...rutPhase(daysFromRutPeak(parts, opts.rutPeak)) }
+                season: (() => {
+                    const d = daysFromPeak(parts, opts.seasonPeak);
+                    return { daysFromPeak: d, ...profile.phase(d, parts) };
+                })()
+            },
+            species: {
+                id: profile.id, name: profile.name, noun: profile.noun, title: profile.title,
+                scoreLabel: profile.scoreLabel, seasonLabel: profile.seasonLabel, usesWindDir: profile.usesWindDir
             },
             hours,
             daily,
@@ -259,7 +458,7 @@
     }
 
     function scoreHour(raw, i, day, solunar, tz, opts) {
-        const { rutPeak, windDirs } = opts;
+        const { profile, seasonPeak, windDirs } = opts;
         const h = raw[i];
         const parts = localParts(h.time, tz);
         const at = (k) => raw[clamp(i + k, 0, raw.length - 1)];
@@ -274,69 +473,53 @@
         const sunrise = day.sunrise / HOUR;
         const sunset = day.sunset / HOUR;
         const daylight = t >= sunrise && t <= sunset;
-        const legalLight = h.time + HOUR > day.sunrise - 0.5 * HOUR && h.time < day.sunset + 0.5 * HOUR;
-        const rut = rutPhase(daysFromRutPeak(parts, rutPeak));
-        const floor = daylight ? 0.20 + rut.daytime : 0.35;
-        const peak = Math.max(gauss(t, sunrise + 0.4, 1.1), gauss(t, sunset - 0.4, 1.1));
-        const base = floor + (0.72 - floor) * peak;
+        const [legalStart, legalEnd] = profile.legal(day);
+        const legalLight = h.time + HOUR > legalStart && h.time < legalEnd;
+        const phase = profile.phase(daysFromPeak(parts, seasonPeak), parts);
+        const tod = profile.baseline({ t, sunrise, sunset, daylight, phase });
+        factors.push({ group: 'time', label: tod.label, mult: 1, effect: tod.prime ? 'up' : 'neutral' });
 
-        let timeLabel;
-        if (peak > 0.6) timeLabel = t < (sunrise + sunset) / 2 ? 'Prime time — around sunrise' : 'Prime time — around sunset';
-        else if (daylight) timeLabel = rut.daytime > 0.1 ? 'Midday — but the rut keeps bucks moving' : 'Midday — deer typically bedded';
-        else timeLabel = 'Night — deer active, but outside legal shooting light';
-        factors.push({ group: 'time', label: timeLabel, mult: 1, effect: peak > 0.6 ? 'up' : 'neutral' });
-
-        let mult = 1;
-
-        // --- Pressure ---
+        // --- Context shared by the species weather models ---
         const trend3 = h.pressure - at(-3).pressure;
         const rainingNow = h.precip > 0.01;
         let rainSoon = false;
         for (let k = 1; k <= 6; k++) if (at(k).precipProb >= 60 || at(k).precip >= 0.04) rainSoon = true;
-        mult *= add('pressure', pressureLevelFactor(h.pressure));
-        mult *= add('pressure', pressureTrendFactor(trend3, rainSoon, rainingNow));
-
-        // Front passage: pressure bottomed out in the past 24 h and is now climbing, with cooler air.
         let minP = Infinity;
         for (let k = -24; k <= 0; k++) minP = Math.min(minP, at(k).pressure);
         const dT = h.temp - at(-24).temp;
-        if (h.pressure - minP >= 0.12 && trend3 > 0 && dT <= -5) {
-            mult *= add('pressure', [1.12, 'Cold front has passed — one of the best triggers for daylight movement']);
-        }
-
-        // --- Temperature ---
-        mult *= add('temp', tempChangeFactor(dT));
-        mult *= add('temp', tempAbsoluteFactor(h.temp, daylight));
-
-        // --- Wind / precipitation / clouds ---
-        mult *= add('wind', windFactor(h.wind, h.gust));
-        const match = windMatch(h.windDir, h.wind, windDirs);
-        mult *= add('wind', windDirFactor(match, h.windDir));
         let prev4 = 0;
         for (let k = -4; k <= -1; k++) prev4 = Math.max(prev4, at(k).precip);
-        mult *= add('precip', precipFactor(h.precip, prev4));
-        if (daylight && h.cloud >= 80 && !rainingNow) mult *= add('sky', [1.04, 'Overcast — deer more comfortable moving in daylight']);
+        const morning = t >= sunrise - 1 && t <= sunrise + 3;
+
+        let mult = profile.weather({ h, trend3, rainSoon, rainingNow, minP, dT, prev4, daylight, morning, phase }, add);
+
+        // --- Stand wind direction ---
+        const match = windMatch(h.windDir, h.wind, windDirs);
+        mult *= add('wind', windDirFactor(match, h.windDir, profile));
 
         // --- Solunar ---
-        const mid = h.time + HOUR / 2;
-        let sol = null;
-        for (const ev of solunar) {
-            const dist = Math.abs(ev.time - mid);
-            if (ev.major && dist <= 1.5 * HOUR) { sol = ev; break; }
-            if (!ev.major && dist <= 1 * HOUR && !sol) sol = ev;
-        }
-        if (sol) {
-            const names = { overhead: 'Moon overhead', underfoot: 'Moon underfoot', rise: 'Moonrise', set: 'Moonset' };
-            mult *= add('moon', sol.major
-                ? [1.08, `Solunar major period (${names[sol.type]})`]
-                : [1.04, `Solunar minor period (${names[sol.type]})`]);
-        }
-
-        // --- Rut ---
-        if (rut.mult !== 1 || rut.daytime > 0) {
-            mult *= add('rut', [rut.mult, rut.name]);
+        if (profile.solunar) {
+            const mid = h.time + HOUR / 2;
+            let sol = null;
+            for (const ev of solunar) {
+                const dist = Math.abs(ev.time - mid);
+                if (ev.major && dist <= 1.5 * HOUR) { sol = ev; break; }
+                if (!ev.major && dist <= 1 * HOUR && !sol) sol = ev;
+            }
+            if (sol) {
+                const names = { overhead: 'Moon overhead', underfoot: 'Moon underfoot', rise: 'Moonrise', set: 'Moonset' };
+                mult *= add('moon', sol.major
+                    ? [1.08, `Solunar major period (${names[sol.type]})`]
+                    : [1.04, `Solunar minor period (${names[sol.type]})`]);
+            }
         }
 
+        // --- Season phase (rut / bugle / gobbling) ---
+        if (phase.mult !== 1 || phase.daytime > 0) {
+            mult *= add('season', [phase.mult, phase.name]);
+        }
+
+        const base = tod.base;
         // Factors overlap (a front brings pressure, temperature and wind changes together),
         // so dampen the combined effect instead of letting them stack linearly.
         const weather = clamp(Math.pow(mult, 0.7), 0.45, 1.4);
@@ -349,6 +532,8 @@
             rating: ratingFor(score),
             daylight,
             legalLight,
+            legalStart,
+            legalEnd,
             pressure: h.pressure,
             trend3,
             temp: h.temp,
@@ -391,8 +576,9 @@
         }
         return windows
             .map((w) => ({
-                start: w.hours[0].time,
-                end: w.hours[w.hours.length - 1].time + HOUR,
+                // Trim to legal shooting light (e.g. turkey hours end at sunset).
+                start: Math.max(w.hours[0].time, w.hours[0].legalStart),
+                end: Math.min(w.hours[w.hours.length - 1].time + HOUR, w.hours[w.hours.length - 1].legalEnd),
                 peak: Math.max(...w.hours.map((h) => h.score)),
                 avg: Math.round(w.hours.reduce((s, h) => s + h.score, 0) / w.hours.length),
                 ...(() => {
@@ -456,7 +642,8 @@
     }
 
     const DeerForecast = {
-        buildForecast, ratingFor, rutPhase, daysFromRutPeak, localParts, windMatch, compass, COMPASS_8, HPA_TO_INHG
+        buildForecast, ratingFor, rutPhase, elkPhase, turkeyPhase, daysFromPeak,
+        daysFromRutPeak: daysFromPeak, localParts, windMatch, compass, COMPASS_8, SPECIES, HPA_TO_INHG
     };
     root.DeerForecast = DeerForecast;
     if (typeof module !== 'undefined' && module.exports) module.exports = DeerForecast;

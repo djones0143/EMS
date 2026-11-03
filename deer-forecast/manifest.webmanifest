@@ -1,13 +1,18 @@
 {
-    "name": "Deer Movement Forecast",
-    "short_name": "Deer Forecast",
-    "description": "Whitetail deer movement forecast from your location and barometric pressure.",
+    "name": "Game Movement Forecast",
+    "short_name": "Game Forecast",
+    "description": "Whitetail, turkey and elk movement forecast from your location and barometric pressure.",
     "start_url": "./",
     "scope": "./",
     "display": "standalone",
     "background_color": "#141a12",
     "theme_color": "#1f2a1c",
     "icons": [
-        { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+        {
+            "src": "icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
     ]
 }

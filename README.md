@@ -199,5 +199,5 @@ For issues or questions about:
 
 ## Also in this repository
 
-**[Deer Movement Forecast](deer-forecast/)**: a separate app that forecasts whitetail deer movement from
-your location, barometric pressure, weather, moon and rut phase. See `deer-forecast/README.md`.
+**[Game Movement Forecast](deer-forecast/)**: a separate app that forecasts whitetail, turkey and elk movement from
+your location, barometric pressure, weather, moon and season phase. See `deer-forecast/README.md`.

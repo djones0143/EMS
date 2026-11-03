@@ -256,3 +256,14 @@ main { max-width: 960px; margin: 0 auto; padding: 12px 16px 24px; display: grid;
     .wind-setting { flex-wrap: wrap; }
     .wind-rose { margin: 0 auto; }
 }
+
+/* Species picker */
+.species-tabs {
+    display: flex; gap: 6px; max-width: 960px; margin: 12px auto 0; padding: 0 16px;
+}
+.species-tabs button {
+    flex: 1; padding: 10px 8px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--card); color: var(--text-2); font-size: 0.95rem; font-weight: 600; cursor: pointer;
+}
+.species-tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.wind-rose.inactive { opacity: 0.45; }

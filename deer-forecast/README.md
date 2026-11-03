@@ -1,7 +1,8 @@
-# Deer Movement Forecast
+# Game Movement Forecast (Whitetail · Turkey · Elk)
 
 An installable web app that uses your **current location** and **barometric pressure** (plus weather,
-moon and rut timing) to forecast whitetail deer movement hour by hour for the next 72 hours.
+moon and season timing) to forecast **whitetail deer**, **wild turkey** and **elk** activity hour by hour for
+the next 72 hours. Pick the species with the tabs at the top. Each species has its own model and season date.
 
 ## What it shows
 
@@ -10,11 +11,26 @@ moon and rut timing) to forecast whitetail deer movement hour by hour for the ne
 - **Best times to be in the stand**: the top windows during shooting light today and tomorrow
 - **72-hour chart**: the hourly movement score above the pressure curve, with night shaded. Tap an hour for details, or open the table view.
 - **Daily outlook**: morning / midday / evening scores, temperature range, pressure trend, wind, rain, sunrise/sunset and moon phase
-- **Rut phase**: based on a peak-rut date you set for your area (default Nov 12)
+- **Season phase**: deer rut, elk bugle or turkey breeding/nesting phase, based on a date you set per species
 - **Stand wind**: in Settings, tap the wind direction(s) that work for your stand on the compass. Hours with the
-  right wind score higher, wrong-wind hours score lower, and the chart, best times and table mark each with ✓ / ✗
+  right wind score higher, wrong-wind hours score lower, and the chart, best times and table mark each with ✓ / ✗.
+  Used for whitetail and elk; turkeys don't hunt by scent, so it's ignored for turkey
 
-## How the score works
+## Species at a glance
+
+| | Whitetail | Turkey | Elk |
+|---|---|---|---|
+| Daily pattern | Dawn & dusk peaks, low midday, moderate at night | Peak at gobbling/fly-down after sunrise, tapering through the day; on the roost from sunset to pre-dawn | Dawn & dusk peaks, beds early in timber |
+| Biggest weather drivers | Fronts, rising pressure, cold snaps | **Wind and rain** (calm, clear mornings = gobbling) | **Heat** (bed early when warm), fronts, cold |
+| Season setting (default) | Peak rut — Nov 12 | Hens start nesting — Apr 20 | Peak bugle — Sep 25 |
+| Season phases | Pre-rut, seeking, peak rut, post-rut, second rut | Early spring, peak breeding, hens nesting (prime calling), late spring, fall flock | Pre-rut, peak bugle, late rut |
+| Legal light used | 30 min before sunrise – 30 min after sunset | 30 min before sunrise – **sunset** | 30 min before sunrise – 30 min after sunset |
+| Stand wind direction | Yes | No | Yes (penalized more than deer) |
+| Solunar periods | Small weight | Not used | Small weight |
+
+Legal hours vary by state and season, so always check your regulations.
+
+## How the whitetail score works
 
 Each hour starts from a **time-of-day baseline**. Deer are crepuscular, so scores peak around sunrise and sunset, are low at midday, and are moderate at night. During the rut the midday baseline goes up. The baseline is then adjusted by these factors:
 
@@ -31,6 +47,9 @@ Each hour starts from a **time-of-day baseline**. Deer are crepuscular, so score
 | Sky | overcast days | — |
 | Solunar | moon overhead/underfoot (major) or rising/setting (minor), small weight | — |
 | Rut | seeking, peak and second rut | — |
+
+Elk use the same factors with stronger heat and wrong-wind penalties. Turkeys use their own pressure, wind, rain,
+fog and clear-sky factors (see `SPECIES` in `forecast.js`).
 
 The factors overlap (a front brings pressure, temperature and wind changes together), so their combined
 effect is dampened instead of being multiplied straight through. All of the logic is in `forecast.js`, so you can tune it.
@@ -71,7 +90,7 @@ deer-forecast/
 ├── index.html            # Layout
 ├── styles.css            # Styling (dark/light follows your device)
 ├── app.js                # UI, location, data fetching, chart
-├── forecast.js           # Movement scoring model
+├── forecast.js           # Scoring engine + species profiles (deer, turkey, elk)
 ├── astro.js              # Moon phase and solunar calculations
 ├── sw.js, manifest.webmanifest, icon.svg   # Installable/offline app
 └── tests/                # node --test tests/*.test.js
@@ -84,4 +103,6 @@ cd deer-forecast
 node --test tests/*.test.js
 ```
 
-The tests run the model on a synthetic cold-front scenario (`tests/fixture.js`).
+The tests run every species model on a synthetic cold-front scenario (`tests/fixture.js`).
+
+The folder is still named `deer-forecast`, so the app's web address didn't change when turkey and elk were added.

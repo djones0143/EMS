@@ -29,11 +29,24 @@
 
     const state = {
         location: store.get(STORE.location, null),
-        settings: { rutPeak: '11-12', windDirs: [], ...store.get(STORE.settings, {}) },
+        settings: loadSettings(),
         weather: null,
         forecast: null,
         selected: 0
     };
+
+    function loadSettings() {
+        const saved = store.get(STORE.settings, {});
+        const settings = { species: 'deer', windDirs: [], peaks: {}, ...saved };
+        if (saved.rutPeak && !settings.peaks.deer) settings.peaks.deer = saved.rutPeak; // older versions
+        delete settings.rutPeak;
+        for (const [id, sp] of Object.entries(window.DeerForecast.SPECIES)) {
+            if (!settings.peaks[id]) settings.peaks[id] = sp.defaultPeak;
+        }
+        if (!window.DeerForecast.SPECIES[settings.species]) settings.species = 'deer';
+        return settings;
+    }
+    const profile = () => window.DeerForecast.SPECIES[state.settings.species];
 
     // ---- Weather codes (WMO) ----------------------------------------------
     const WX = {
@@ -208,7 +221,8 @@
         if (!state.weather) return;
         state.forecast = buildForecast(state.weather, {
             lat: state.location.lat, lon: state.location.lon,
-            rutPeak: state.settings.rutPeak, windDirs: state.settings.windDirs, now: Date.now(), hoursAhead: 72
+            species: state.settings.species, seasonPeak: state.settings.peaks[state.settings.species],
+            windDirs: state.settings.windDirs, now: Date.now(), hoursAhead: 72
         });
         state.selected = 0;
         render();
@@ -276,9 +290,11 @@
         }
         $('curMoon').textContent = `${c.moon.icon} ${Math.round(c.moon.fraction * 100)}%`;
         $('curMoonSub').textContent = c.moon.name;
-        $('curRut').textContent = c.rut.name;
-        const d = c.rut.daysFromPeak;
-        $('curRutSub').textContent = (d === 0 ? 'Peak day. ' : d < 0 ? `${-d} days to peak. ` : `${d} days past peak. `) + c.rut.note;
+        $('seasonLabel').textContent = f.species.seasonLabel;
+        $('curRut').textContent = c.season.name;
+        const d = c.season.daysFromPeak;
+        const when = Math.abs(d) > 60 ? '' : d === 0 ? 'Peak day. ' : d < 0 ? `${-d} days to peak. ` : `${d} days past peak. `;
+        $('curRutSub').textContent = when + c.season.note;
     }
 
     function renderBestTimes(f) {
@@ -331,7 +347,7 @@
         const sTop = top;
         const pTop = top + sH + gap;
         const wTop = pTop + pH + wGap;
-        const hasPrefs = state.settings.windDirs.length > 0;
+        const hasPrefs = f.species.usesWindDir && state.settings.windDirs.length > 0;
 
         const pMin = Math.min(...hours.map((h) => h.pressure));
         const pMax = Math.max(...hours.map((h) => h.pressure));
@@ -343,7 +359,7 @@
         const x = (i) => left + i * colW;
 
         const parts = [];
-        parts.push(`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Movement score and pressure for the next ${n} hours">`);
+        parts.push(`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${f.species.name} ${f.species.scoreLabel.toLowerCase()} score and pressure for the next ${n} hours">`);
 
         // night shading (both panels)
         for (let i = 0; i < n; i++) {
@@ -358,7 +374,7 @@
             parts.push(`<line class="grid" x1="${left}" x2="${W - right}" y1="${sy(s)}" y2="${sy(s)}"/>`);
             parts.push(`<text x="${left - 6}" y="${sy(s) + 4}" text-anchor="end">${s}</text>`);
         }
-        parts.push(`<text class="panel-title" x="${left}" y="${sTop - 8}">Movement score</text>`);
+        parts.push(`<text class="panel-title" x="${left}" y="${sTop - 8}">${f.species.scoreLabel} score</text>`);
 
         // pressure gridlines + labels
         const steps = 3;
@@ -534,13 +550,10 @@
 
     // ---- Settings -----------------------------------------------------------
     function initSettings() {
-        const [m, d] = state.settings.rutPeak.split('-');
-        $('rutMonth').value = m;
-        $('rutDay').value = Number(d);
         const save = () => {
             const month = $('rutMonth').value;
             const day = Math.max(1, Math.min(31, parseInt($('rutDay').value, 10) || 1));
-            state.settings.rutPeak = `${month}-${String(day).padStart(2, '0')}`;
+            state.settings.peaks[state.settings.species] = `${month}-${String(day).padStart(2, '0')}`;
             store.set(STORE.settings, state.settings);
             compute();
         };
@@ -555,10 +568,14 @@
                 b.setAttribute('aria-pressed', String(on));
             });
             const dirs = state.settings.windDirs;
-            $('windPrefSummary').textContent = dirs.length
-                ? `Scoring for ${dirs.join(', ')} wind. Hours with the wrong wind are marked down.`
-                : 'No preference — wind direction does not affect the score.';
+            $('windPrefSummary').textContent = !profile().usesWindDir
+                ? 'Not used for turkey — turkeys rely on eyesight and hearing, not scent.'
+                : dirs.length
+                    ? `Scoring for ${dirs.join(', ')} wind. Hours with the wrong wind are marked down.`
+                    : 'No preference — wind direction does not affect the score.';
+            rose.classList.toggle('inactive', !profile().usesWindDir);
         };
+        state.syncRose = syncRose;
         rose.addEventListener('click', (e) => {
             const b = e.target.closest('button');
             if (!b) return;
@@ -575,6 +592,35 @@
             compute();
         });
         syncRose();
+
+        // Species tabs
+        $('speciesTabs').addEventListener('click', (e) => {
+            const b = e.target.closest('[data-species]');
+            if (!b || b.dataset.species === state.settings.species) return;
+            state.settings.species = b.dataset.species;
+            store.set(STORE.settings, state.settings);
+            applySpecies();
+            compute();
+        });
+        applySpecies();
+    }
+
+    /** Update species-specific labels and settings controls. */
+    function applySpecies() {
+        const sp = profile();
+        document.querySelectorAll('#speciesTabs [data-species]').forEach((b) => {
+            b.setAttribute('aria-selected', String(b.dataset.species === sp.id));
+        });
+        $('appTitle').textContent = sp.title;
+        document.title = sp.title;
+        $('nowHeading').textContent = `${sp.scoreLabel} right now`;
+        $('seasonLabel').textContent = sp.seasonLabel;
+        $('peakLabel').textContent = sp.peakLabel;
+        $('peakHelp').textContent = sp.peakHelp;
+        const [m, d] = state.settings.peaks[sp.id].split('-');
+        $('rutMonth').value = m;
+        $('rutDay').value = Number(d);
+        if (state.syncRose) state.syncRose();
     }
 
     // ---- Events -------------------------------------------------------------

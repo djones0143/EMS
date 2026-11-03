@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#1f2a1c">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Deer Movement Forecast</title>
+    <title>Game Movement Forecast</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="icon.svg">
@@ -18,7 +18,7 @@
         <div class="brand">
             <img src="icon.svg" alt="" width="32" height="32">
             <div>
-                <h1>Deer Movement Forecast</h1>
+                <h1 id="appTitle">Game Movement Forecast</h1>
                 <p id="locationName" class="location">Locating…</p>
             </div>
         </div>
@@ -37,6 +37,12 @@
         <ul id="searchResults" class="search-results"></ul>
     </section>
 
+    <nav id="speciesTabs" class="species-tabs" role="tablist" aria-label="Species">
+        <button type="button" role="tab" data-species="deer" aria-selected="true">🦌 Whitetail</button>
+        <button type="button" role="tab" data-species="turkey" aria-selected="false">🦃 Turkey</button>
+        <button type="button" role="tab" data-species="elk" aria-selected="false">Elk</button>
+    </nav>
+
     <div id="status" class="status" role="status" hidden></div>
 
     <main id="main" hidden>
@@ -52,7 +58,7 @@
                 </div>
             </div>
             <div class="now-body">
-                <h2>Movement right now</h2>
+                <h2 id="nowHeading">Movement right now</h2>
                 <p id="nowTime" class="muted"></p>
                 <ul id="nowFactors" class="factors"></ul>
             </div>
@@ -80,14 +86,14 @@
                 <span id="curMoonSub" class="cond-sub"></span>
             </div>
             <div class="cond cond-rut">
-                <span class="cond-label">Rut phase</span>
+                <span id="seasonLabel" class="cond-label">Rut phase</span>
                 <span id="curRut" class="cond-value small">--</span>
                 <span id="curRutSub" class="cond-sub"></span>
             </div>
         </section>
 
         <section class="card">
-            <h2>Best times to be in the stand</h2>
+            <h2>Best times to hunt</h2>
             <div id="bestTimes" class="best-times"></div>
         </section>
 
@@ -114,26 +120,33 @@
         <section class="card settings">
             <h2>Settings</h2>
             <label class="setting">
-                <span>Peak rut date for your area</span>
+                <span id="peakLabel">Peak rut date for your area</span>
                 <span class="rut-inputs">
-                    <select id="rutMonth" aria-label="Peak rut month">
+                    <select id="rutMonth" aria-label="Season peak month">
+                        <option value="01">Jan</option>
+                        <option value="02">Feb</option>
+                        <option value="03">Mar</option>
+                        <option value="04">Apr</option>
+                        <option value="05">May</option>
+                        <option value="06">Jun</option>
+                        <option value="07">Jul</option>
+                        <option value="08">Aug</option>
+                        <option value="09">Sep</option>
                         <option value="10">Oct</option>
                         <option value="11">Nov</option>
                         <option value="12">Dec</option>
-                        <option value="01">Jan</option>
-                        <option value="02">Feb</option>
                     </select>
-                    <input id="rutDay" type="number" min="1" max="31" inputmode="numeric" aria-label="Peak rut day">
+                    <input id="rutDay" type="number" min="1" max="31" inputmode="numeric" aria-label="Season peak day">
                 </span>
             </label>
-            <p class="muted small">Most of the Midwest, Northeast and Kentucky peak around Nov 5–15. Parts of the
-                Deep South peak in December–January. Check your state wildlife agency's breeding-date map.</p>
+            <p id="peakHelp" class="muted small"></p>
+            <p class="muted small">Each species keeps its own date.</p>
 
             <div class="setting wind-setting">
                 <div>
                     <span>Best wind for your stand</span>
                     <p class="muted small">Tap the direction(s) the wind should blow <em>from</em> so it carries your
-                        scent away from where deer approach. You can pick more than one.</p>
+                        scent away from where game approaches. You can pick more than one. Used for whitetail and elk.</p>
                     <p id="windPrefSummary" class="small wind-summary"></p>
                 </div>
                 <div id="windRose" class="wind-rose" role="group" aria-label="Preferred wind directions">
