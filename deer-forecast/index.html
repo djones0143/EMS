@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deer Movement Forecast</title>
+  <meta name="description" content="Whitetail deer movement forecast from your location, barometric pressure, weather, moon and rut timing.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-inner">
+      <div>
+        <h1>Deer Movement Forecast</h1>
+        <p class="sub" id="placeName">Location not set</p>
+      </div>
+      <div class="top-actions">
+        <button id="locateBtn" class="btn primary" type="button">Use my location</button>
+        <button id="refreshBtn" class="btn" type="button" hidden>Refresh</button>
+      </div>
+    </div>
+    <div class="wrap">
+      <form id="searchForm" class="search" autocomplete="off">
+        <label class="sr-only" for="searchInput">Search a town or ZIP</label>
+        <input id="searchInput" type="search" placeholder="…or search a town / ZIP (e.g. Bowling Green, KY)">
+        <button class="btn" type="submit">Search</button>
+      </form>
+      <ul id="searchResults" class="search-results" hidden></ul>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <p id="status" class="status" role="status">Tap <strong>Use my location</strong> to get a forecast.</p>
+
+    <div id="content" hidden>
+      <!-- Now -->
+      <section class="card hero" aria-labelledby="nowTitle">
+        <div class="hero-score">
+          <h2 id="nowTitle" class="eyebrow">Right now</h2>
+          <div class="score-line">
+            <span id="nowScore" class="big">–</span><span class="of">/100</span>
+          </div>
+          <span id="nowRating" class="pill">–</span>
+        </div>
+        <div class="hero-why">
+          <h3 class="eyebrow">Why</h3>
+          <ul id="nowFactors" class="factors"></ul>
+        </div>
+      </section>
+
+      <!-- Conditions -->
+      <section class="tiles" aria-label="Current conditions">
+        <div class="tile"><span class="eyebrow">Barometer</span><span id="cPressure" class="tile-val">–</span><span id="cTrend" class="tile-sub">–</span></div>
+        <div class="tile"><span class="eyebrow">Temperature</span><span id="cTemp" class="tile-val">–</span><span id="cTempSub" class="tile-sub">–</span></div>
+        <div class="tile"><span class="eyebrow">Wind</span><span id="cWind" class="tile-val">–</span><span id="cWindSub" class="tile-sub">–</span></div>
+        <div class="tile"><span class="eyebrow">Moon</span><span id="cMoon" class="tile-val">–</span><span id="cMoonSub" class="tile-sub">–</span></div>
+        <div class="tile"><span class="eyebrow">Rut phase</span><span id="cRut" class="tile-val">–</span><span id="cRutSub" class="tile-sub">–</span></div>
+        <div class="tile"><span class="eyebrow">Sun today</span><span id="cSun" class="tile-val">–</span><span id="cSunSub" class="tile-sub">–</span></div>
+      </section>
+
+      <!-- Best windows -->
+      <section class="card" aria-labelledby="bestTitle">
+        <h2 id="bestTitle">Best times to sit (next 3 days)</h2>
+        <ol id="bestList" class="best"></ol>
+      </section>
+
+      <!-- Daily -->
+      <section class="card" aria-labelledby="dailyTitle">
+        <h2 id="dailyTitle">Morning vs. evening sits</h2>
+        <div id="daily" class="daily"></div>
+      </section>
+
+      <!-- Hourly chart -->
+      <section class="card" aria-labelledby="hourlyTitle">
+        <div class="card-head">
+          <h2 id="hourlyTitle">Hourly movement score</h2>
+          <button id="tableToggle" class="btn small" type="button" aria-expanded="false">Show table</button>
+        </div>
+        <p class="hint">Shaded bands are night. Bold orange bars are prime hours (score 65+). Hover or tap a bar for details.</p>
+        <div class="chart" id="hourlyChart"></div>
+        <div id="hourlyTable" class="table-wrap" hidden></div>
+      </section>
+
+      <!-- Pressure chart -->
+      <section class="card" aria-labelledby="pressTitle">
+        <h2 id="pressTitle">Barometric pressure (inHg), past 24 h + forecast</h2>
+        <p class="hint">Deer tend to move more on a steady or rising barometer around 30.00–30.40, and just before a front. A fast drop usually slows things down.</p>
+        <div class="chart" id="pressureChart"></div>
+      </section>
+
+      <!-- Settings -->
+      <section class="card" aria-labelledby="setTitle">
+        <h2 id="setTitle">Settings</h2>
+        <label class="field">
+          <span>Local peak-rut (breeding) date</span>
+          <input id="rutInput" type="date">
+        </label>
+        <p class="hint">The default, Nov 12, fits most of Kentucky and the Midwest. Set it to your state's published peak-breeding date.</p>
+      </section>
+
+      <p class="disclaimer">
+        The score comes from rules of thumb hunters commonly use (light, pressure and its trend, temperature swings, wind, rain, moon position, rut timing).
+        It's a planning aid, not a guarantee. Always check your state's legal shooting hours. Weather data: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>.
+        <br><span id="updated"></span>
+      </p>
+    </div>
+  </main>
+
+  <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
+  <script src="astro.js"></script>
+  <script src="model.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
