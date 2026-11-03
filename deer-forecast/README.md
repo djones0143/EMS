@@ -11,6 +11,8 @@ moon and rut timing) to forecast whitetail deer movement hour by hour for the ne
 - **72-hour chart**: the hourly movement score above the pressure curve, with night shaded. Tap an hour for details, or open the table view.
 - **Daily outlook**: morning / midday / evening scores, temperature range, pressure trend, wind, rain, sunrise/sunset and moon phase
 - **Rut phase**: based on a peak-rut date you set for your area (default Nov 12)
+- **Stand wind**: in Settings, tap the wind direction(s) that work for your stand on the compass. Hours with the
+  right wind score higher, wrong-wind hours score lower, and the chart, best times and table mark each with ✓ / ✗
 
 ## How the score works
 
@@ -23,7 +25,8 @@ Each hour starts from a **time-of-day baseline**. Deer are crepuscular, so score
 | Cold front passage | pressure rebounding off a low with cooler air | — |
 | Temperature vs. 24 h ago | 4–10°F+ colder | much warmer |
 | Daytime temperature | cold (≤ 40°F) | warm (≥ 65°F) |
-| Wind | ≤ 10 mph | > 15 mph, strong gusts |
+| Wind speed | ≤ 10 mph | > 15 mph, strong gusts |
+| Wind direction *(only if you set a stand wind)* | within 22.5° of a chosen direction | more than 45° off (deer may smell you) |
 | Precipitation | rain that just ended | steady or heavy rain |
 | Sky | overcast days | — |
 | Solunar | moon overhead/underfoot (major) or rising/setting (minor), small weight | — |

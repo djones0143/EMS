@@ -29,7 +29,7 @@
 
     const state = {
         location: store.get(STORE.location, null),
-        settings: { rutPeak: '11-12', ...store.get(STORE.settings, {}) },
+        settings: { rutPeak: '11-12', windDirs: [], ...store.get(STORE.settings, {}) },
         weather: null,
         forecast: null,
         selected: 0
@@ -49,8 +49,13 @@
         95: ['⛈️', 'Thunderstorm'], 96: ['⛈️', 'Thunderstorm w/ hail'], 99: ['⛈️', 'Thunderstorm w/ hail']
     };
     const wx = (code) => WX[code] || ['', ''];
-    const compass = (deg) => deg == null ? '' :
-        ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'][Math.round(deg / 22.5) % 16];
+    const compass = window.DeerForecast.compass;
+    const MATCH = {
+        good: { mark: '✓', text: 'right wind for your stand' },
+        ok: { mark: '~', text: 'close to your stand\'s wind' },
+        bad: { mark: '✗', text: 'wrong wind for your stand' },
+        calm: { mark: '•', text: 'calm / variable' }
+    };
 
     // ---- Formatting (in the forecast location's time zone) ----------------
     const tzOpt = () => (state.forecast ? { timeZone: state.forecast.timezone } : {});
@@ -203,7 +208,7 @@
         if (!state.weather) return;
         state.forecast = buildForecast(state.weather, {
             lat: state.location.lat, lon: state.location.lon,
-            rutPeak: state.settings.rutPeak, now: Date.now(), hoursAhead: 72
+            rutPeak: state.settings.rutPeak, windDirs: state.settings.windDirs, now: Date.now(), hoursAhead: 72
         });
         state.selected = 0;
         render();
@@ -263,7 +268,12 @@
         const [ico, desc] = wx(c.code);
         $('curSky').textContent = `${ico} ${desc}`.trim();
         $('curWind').textContent = `${Math.round(c.wind)} mph`;
-        $('curGust').textContent = `${compass(c.windDir)}${c.gust ? ` · gusts ${Math.round(c.gust)}` : ''}`;
+        const gust = $('curGust');
+        gust.textContent = `From ${compass(c.windDir)}${c.gust ? ` · gusts ${Math.round(c.gust)}` : ''}`;
+        if (c.windMatch) {
+            gust.appendChild(el('br'));
+            gust.appendChild(el('span', `wind-${c.windMatch}`, `${MATCH[c.windMatch].mark} ${MATCH[c.windMatch].text}`));
+        }
         $('curMoon').textContent = `${c.moon.icon} ${Math.round(c.moon.fraction * 100)}%`;
         $('curMoonSub').textContent = c.moon.name;
         $('curRut').textContent = c.rut.name;
@@ -289,6 +299,13 @@
                 item.appendChild(sw);
                 item.appendChild(el('span', null, `${fmtTime(w.start)} – ${fmtTime(w.end)}`));
                 item.appendChild(el('strong', null, String(w.peak)));
+                if (w.windDir != null) {
+                    const m = w.windMatch;
+                    const wd = el('span', `win-wind${m ? ` wind-${m}` : ''}`,
+                        `${compass(w.windDir)} ${Math.round(w.wind)} mph${m ? ` ${MATCH[m].mark}` : ''}`);
+                    if (m) wd.title = MATCH[m].text;
+                    item.appendChild(wd);
+                }
                 row.appendChild(item);
             }
             block.appendChild(row);
@@ -307,10 +324,14 @@
         const sH = 110;               // score panel
         const gap = 26;
         const pH = 80;                // pressure panel
+        const wGap = 22;
+        const wH = 24;                // wind direction row
         const axisH = 18;
-        const H = top + sH + gap + pH + axisH;
+        const H = top + sH + gap + pH + wGap + wH + axisH;
         const sTop = top;
         const pTop = top + sH + gap;
+        const wTop = pTop + pH + wGap;
+        const hasPrefs = state.settings.windDirs.length > 0;
 
         const pMin = Math.min(...hours.map((h) => h.pressure));
         const pMax = Math.max(...hours.map((h) => h.pressure));
@@ -352,7 +373,7 @@
         for (let i = 0; i < n; i++) {
             const h = hours[i];
             if (h.hour === 0 || i === 0) {
-                if (h.hour === 0) parts.push(`<line class="midnight" x1="${x(i)}" x2="${x(i)}" y1="${sTop - 34}" y2="${pTop + pH}"/>`);
+                if (h.hour === 0) parts.push(`<line class="midnight" x1="${x(i)}" x2="${x(i)}" y1="${sTop - 34}" y2="${wTop + wH}"/>`);
                 if (h.hour <= 18) {
                     const label = new Date(h.time).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', timeZone: f.timezone });
                     parts.push(`<text class="day-label" x="${x(i) + 4}" y="${12}">${label}</text>`);
@@ -361,6 +382,18 @@
             if (h.hour % 6 === 0) {
                 parts.push(`<text x="${x(i) + colW / 2}" y="${H - 4}" text-anchor="middle">${fmtHour(h.time)}</text>`);
             }
+        }
+
+        // wind direction arrows (every 2 hours; arrow points where the wind blows TO)
+        parts.push(`<text class="panel-title" x="${left}" y="${wTop - 8}">Wind${hasPrefs ? ' — green = your stand\'s wind, red = wrong wind' : ' direction'}</text>`);
+        for (let i = 0; i < n; i += 2) {
+            const h = hours[i];
+            if (h.windDir == null) continue;
+            const ax = x(i) + colW;
+            const ay = wTop + wH / 2;
+            const cls = h.windMatch ? `wind-${h.windMatch}` : 'wind-none';
+            const scale = h.wind < 3 ? 0.7 : 1;
+            parts.push(`<path class="warrow ${cls}" transform="translate(${ax},${ay}) rotate(${(h.windDir + 180) % 360}) scale(${scale})" d="M0,-9 L6,5 L0,2 L-6,5 Z"/>`);
         }
 
         // score bars
@@ -379,12 +412,12 @@
         // cursor for the selected hour
         const si = state.selected;
         const cx = x(si) + colW / 2;
-        parts.push(`<line class="cursor" id="cursorLine" x1="${cx}" x2="${cx}" y1="${sTop}" y2="${pTop + pH}"/>`);
+        parts.push(`<line class="cursor" id="cursorLine" x1="${cx}" x2="${cx}" y1="${sTop}" y2="${wTop + wH}"/>`);
         parts.push(`<circle class="pdot" id="cursorDot" cx="${cx}" cy="${py(hours[si].pressure)}" r="4.5"/>`);
 
         // hit targets (full column height)
         for (let i = 0; i < n; i++) {
-            parts.push(`<rect class="hit" data-i="${i}" x="${x(i)}" y="${sTop - 34}" width="${colW}" height="${H - sTop + 34}"><title>${fmtDay(hours[i].time)} ${fmtHour(hours[i].time)}: score ${hours[i].score}, ${fmtP(hours[i].pressure)} inHg</title></rect>`);
+            parts.push(`<rect class="hit" data-i="${i}" x="${x(i)}" y="${sTop - 34}" width="${colW}" height="${H - sTop + 34}"><title>${fmtDay(hours[i].time)} ${fmtHour(hours[i].time)}: score ${hours[i].score}, ${fmtP(hours[i].pressure)} inHg, wind ${compass(hours[i].windDir)} ${Math.round(hours[i].wind)} mph</title></rect>`);
         }
         parts.push('</svg>');
         $('chart').innerHTML = parts.join('');
@@ -435,7 +468,7 @@
         const [ico, desc] = wx(h.code);
         box.appendChild(el('div', 'hd-meta',
             `${fmtP(h.pressure)} inHg (${fmtTrend(h.trend3)}/3h) · ${Math.round(h.temp)}°F · ` +
-            `${compass(h.windDir)} ${Math.round(h.wind)} mph · ${ico} ${desc}` +
+            `${compass(h.windDir)} ${Math.round(h.wind)} mph${h.windMatch ? ` ${MATCH[h.windMatch].mark}` : ''} · ${ico} ${desc}` +
             (h.precipProb ? ` · ${h.precipProb}% rain` : '')));
         const ul = el('ul', 'factors');
         factorList(ul, h.factors);
@@ -446,14 +479,15 @@
         const t = $('hourTable');
         t.replaceChildren();
         const head = el('tr');
-        for (const c of ['Time', 'Score', 'Pressure', '3h Δ', 'Temp', 'Wind', 'Rain %']) head.appendChild(el('th', null, c));
+        for (const c of ['Time', 'Score', 'Pressure', '3h Δ', 'Temp', 'Wind', 'From', 'Rain %']) head.appendChild(el('th', null, c));
         const thead = el('thead'); thead.appendChild(head); t.appendChild(thead);
         const tb = el('tbody');
         for (const h of f.hours) {
             const tr = el('tr');
             [
                 `${fmtDay(h.time)} ${fmtHour(h.time)}`, `${h.score} ${h.rating.label}`, fmtP(h.pressure),
-                fmtTrend(h.trend3), `${Math.round(h.temp)}°`, `${Math.round(h.wind)} mph`, `${h.precipProb ?? 0}%`
+                fmtTrend(h.trend3), `${Math.round(h.temp)}°`, `${Math.round(h.wind)} mph`,
+                `${compass(h.windDir)}${h.windMatch ? ` ${MATCH[h.windMatch].mark}` : ''}`, `${h.precipProb ?? 0}%`
             ].forEach((v) => tr.appendChild(el('td', null, v)));
             tb.appendChild(tr);
         }
@@ -512,6 +546,35 @@
         };
         $('rutMonth').addEventListener('change', save);
         $('rutDay').addEventListener('change', save);
+
+        // Preferred stand wind directions (compass rose toggles)
+        const rose = $('windRose');
+        const syncRose = () => {
+            rose.querySelectorAll('[data-dir]').forEach((b) => {
+                const on = state.settings.windDirs.includes(b.dataset.dir);
+                b.setAttribute('aria-pressed', String(on));
+            });
+            const dirs = state.settings.windDirs;
+            $('windPrefSummary').textContent = dirs.length
+                ? `Scoring for ${dirs.join(', ')} wind. Hours with the wrong wind are marked down.`
+                : 'No preference — wind direction does not affect the score.';
+        };
+        rose.addEventListener('click', (e) => {
+            const b = e.target.closest('button');
+            if (!b) return;
+            if (b.dataset.dir) {
+                const dirs = new Set(state.settings.windDirs);
+                dirs.has(b.dataset.dir) ? dirs.delete(b.dataset.dir) : dirs.add(b.dataset.dir);
+                const order = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+                state.settings.windDirs = order.filter((d) => dirs.has(d));
+            } else {
+                state.settings.windDirs = [];
+            }
+            store.set(STORE.settings, state.settings);
+            syncRose();
+            compute();
+        });
+        syncRose();
     }
 
     // ---- Events -------------------------------------------------------------

@@ -128,6 +128,26 @@
             </label>
             <p class="muted small">Most of the Midwest, Northeast and Kentucky peak around Nov 5–15. Parts of the
                 Deep South peak in December–January. Check your state wildlife agency's breeding-date map.</p>
+
+            <div class="setting wind-setting">
+                <div>
+                    <span>Best wind for your stand</span>
+                    <p class="muted small">Tap the direction(s) the wind should blow <em>from</em> so it carries your
+                        scent away from where deer approach. You can pick more than one.</p>
+                    <p id="windPrefSummary" class="small wind-summary"></p>
+                </div>
+                <div id="windRose" class="wind-rose" role="group" aria-label="Preferred wind directions">
+                    <button type="button" data-dir="NW" aria-pressed="false">NW</button>
+                    <button type="button" data-dir="N" aria-pressed="false">N</button>
+                    <button type="button" data-dir="NE" aria-pressed="false">NE</button>
+                    <button type="button" data-dir="W" aria-pressed="false">W</button>
+                    <button type="button" class="rose-clear" aria-label="Clear wind preference">Any</button>
+                    <button type="button" data-dir="E" aria-pressed="false">E</button>
+                    <button type="button" data-dir="SW" aria-pressed="false">SW</button>
+                    <button type="button" data-dir="S" aria-pressed="false">S</button>
+                    <button type="button" data-dir="SE" aria-pressed="false">SE</button>
+                </div>
+            </div>
         </section>
 
         <p class="footnote">

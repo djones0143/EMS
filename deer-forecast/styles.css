@@ -231,3 +231,28 @@ main { max-width: 960px; margin: 0 auto; padding: 12px 16px 24px; display: grid;
     .now-body { width: 100%; }
     .brand h1 { font-size: 0.95rem; }
 }
+
+/* Wind direction */
+.wind-good { color: var(--up); fill: var(--up); }
+.wind-ok { color: var(--text-2); fill: var(--text-2); }
+.wind-bad { color: var(--down); fill: var(--down); }
+.wind-calm, .wind-none { color: var(--muted); fill: var(--muted); }
+#chart .warrow { stroke: none; }
+.win-wind { font-size: 0.82rem; color: var(--text-2); }
+.win-wind.wind-good { color: var(--up); }
+.win-wind.wind-bad { color: var(--down); }
+.wind-setting { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); align-items: flex-start; flex-wrap: nowrap; }
+.wind-setting > div:first-child { flex: 1; min-width: 0; }
+.wind-setting p { margin-top: 4px; }
+.wind-summary { color: var(--text-2); font-weight: 600; }
+.wind-rose { display: grid; grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(3, 44px); gap: 6px; flex-shrink: 0; }
+.wind-rose button {
+    border-radius: 10px; border: 1px solid var(--border); background: var(--card-2); color: var(--text);
+    font-weight: 700; font-size: 0.9rem; cursor: pointer;
+}
+.wind-rose button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.wind-rose .rose-clear { font-weight: 500; font-size: 0.8rem; color: var(--text-2); border-style: dashed; }
+@media (max-width: 520px) {
+    .wind-setting { flex-wrap: wrap; }
+    .wind-rose { margin: 0 auto; }
+}

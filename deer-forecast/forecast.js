@@ -133,11 +133,56 @@
         return [1.00, null];
     }
 
+    // ---- Wind direction ------------------------------------------------------
+
+    const COMPASS_8 = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 };
+    const COMPASS_16 = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+    const compass = (deg) => (deg == null ? '' : COMPASS_16[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16]);
+    const angleDiff = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+    const CALM_MPH = 3;
+
+    /**
+     * How well the wind direction (degrees the wind blows FROM) fits the stand's preferred winds.
+     * Returns 'good' (within 22.5° of a preferred point), 'ok' (within 45°), 'bad', 'calm' or null (no preference).
+     */
+    function windMatch(dir, speed, prefs) {
+        if (!prefs || !prefs.length || dir == null) return null;
+        if (speed < CALM_MPH) return 'calm';
+        const diff = Math.min(...prefs.map((p) => angleDiff(dir, COMPASS_8[p] ?? p)));
+        if (diff <= 22.5) return 'good';
+        if (diff <= 45) return 'ok';
+        return 'bad';
+    }
+
+    function windDirFactor(match, dir) {
+        const from = compass(dir);
+        switch (match) {
+            case 'good': return [1.10, `${from} wind — right wind for your stand`];
+            case 'ok': return [1.03, `${from} wind — close to your stand's wind`];
+            case 'bad': return [0.85, `${from} wind — wrong wind for your stand; deer may smell you`];
+            case 'calm': return [1.00, 'Calm — wind direction variable, watch thermals'];
+            default: return [1.00, null];
+        }
+    }
+
+    /** Speed-weighted mean wind direction for a set of hours. */
+    function meanWindDir(hours) {
+        let x = 0; let y = 0;
+        for (const h of hours) {
+            if (h.windDir == null) continue;
+            const w = Math.max(h.wind, 0.5);
+            x += Math.cos(h.windDir * Math.PI / 180) * w;
+            y += Math.sin(h.windDir * Math.PI / 180) * w;
+        }
+        if (!x && !y) return null;
+        return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+
     // ---- Main ----------------------------------------------------------------
 
     /**
      * @param {object} wx  Open-Meteo forecast response (timeformat=unixtime, imperial units).
-     * @param {object} opts { lat, lon, rutPeak: 'MM-DD', now: ms, hoursAhead: number }
+     * @param {object} opts { lat, lon, rutPeak: 'MM-DD', windDirs: ['NW', ...], now: ms, hoursAhead: number }
      */
     function buildForecast(wx, opts) {
         const tz = wx.timezone;
@@ -180,11 +225,11 @@
         for (let i = startIdx; i < endIdx; i++) {
             const h = raw[i];
             if (h.pressure == null || h.temp == null) continue;
-            hours.push(scoreHour(raw, i, dayFor(h.time), solunar, tz, opts.rutPeak));
+            hours.push(scoreHour(raw, i, dayFor(h.time), solunar, tz, opts));
         }
 
         const dayKeys = [...new Set(hours.map((h) => h.dateKey))];
-        const daily = dayKeys.map((key) => summarizeDay(key, hours, days, raw, tz));
+        const daily = dayKeys.map((key) => summarizeDay(key, hours, days, raw, tz, opts.windDirs));
 
         const nowIdx = raw.findIndex((h) => h.time + HOUR > now);
         const cur = raw[Math.max(0, nowIdx)];
@@ -201,6 +246,7 @@
                 temp: cur.temp,
                 wind: cur.wind,
                 windDir: cur.windDir,
+                windMatch: windMatch(cur.windDir, cur.wind, opts.windDirs),
                 gust: cur.gust,
                 code: cur.code,
                 moon: { ...moon, ...Astro.moonPhaseName(moon.phase) },
@@ -212,7 +258,8 @@
         };
     }
 
-    function scoreHour(raw, i, day, solunar, tz, rutPeak) {
+    function scoreHour(raw, i, day, solunar, tz, opts) {
+        const { rutPeak, windDirs } = opts;
         const h = raw[i];
         const parts = localParts(h.time, tz);
         const at = (k) => raw[clamp(i + k, 0, raw.length - 1)];
@@ -263,6 +310,8 @@
 
         // --- Wind / precipitation / clouds ---
         mult *= add('wind', windFactor(h.wind, h.gust));
+        const match = windMatch(h.windDir, h.wind, windDirs);
+        mult *= add('wind', windDirFactor(match, h.windDir));
         let prev4 = 0;
         for (let k = -4; k <= -1; k++) prev4 = Math.max(prev4, at(k).precip);
         mult *= add('precip', precipFactor(h.precip, prev4));
@@ -306,6 +355,7 @@
             wind: h.wind,
             gust: h.gust,
             windDir: h.windDir,
+            windMatch: match,
             precip: h.precip,
             precipProb: h.precipProb,
             cloud: h.cloud,
@@ -323,7 +373,7 @@
     }
 
     /** Contiguous blocks of high-scoring hours during legal shooting light. */
-    function bestWindows(dayHours) {
+    function bestWindows(dayHours, windDirs) {
         const legal = dayHours.filter((h) => h.legalLight);
         if (!legal.length) return [];
         const max = Math.max(...legal.map((h) => h.score));
@@ -344,14 +394,19 @@
                 start: w.hours[0].time,
                 end: w.hours[w.hours.length - 1].time + HOUR,
                 peak: Math.max(...w.hours.map((h) => h.score)),
-                avg: Math.round(w.hours.reduce((s, h) => s + h.score, 0) / w.hours.length)
+                avg: Math.round(w.hours.reduce((s, h) => s + h.score, 0) / w.hours.length),
+                ...(() => {
+                    const dir = meanWindDir(w.hours);
+                    const speed = w.hours.reduce((s, h) => s + h.wind, 0) / w.hours.length;
+                    return { windDir: dir, wind: speed, windMatch: windMatch(dir, speed, windDirs) };
+                })()
             }))
             .sort((a, b) => b.peak - a.peak || b.avg - a.avg)
             .slice(0, 3)
             .sort((a, b) => a.start - b.start);
     }
 
-    function summarizeDay(key, hours, days, raw, tz) {
+    function summarizeDay(key, hours, days, raw, tz, windDirs) {
         const dayHours = hours.filter((h) => h.dateKey === key);
         const dayInfo = days.find((d) => localParts(d.start + 12 * HOUR, tz).dateKey === key) || {};
         const inWindow = (from, to) => dayHours.filter((h) => h.time + HOUR > from && h.time < to);
@@ -392,7 +447,7 @@
             tempMax: Math.max(...temps),
             windMax: Math.max(...winds),
             precipTotal,
-            windows: bestWindows(dayHours),
+            windows: bestWindows(dayHours, windDirs),
             moon: (() => {
                 const m = Astro.moonIllumination((dayInfo.start ?? dayHours[0].time) + 12 * HOUR);
                 return { ...m, ...Astro.moonPhaseName(m.phase) };
@@ -400,7 +455,9 @@
         };
     }
 
-    const DeerForecast = { buildForecast, ratingFor, rutPhase, daysFromRutPeak, localParts, HPA_TO_INHG };
+    const DeerForecast = {
+        buildForecast, ratingFor, rutPhase, daysFromRutPeak, localParts, windMatch, compass, COMPASS_8, HPA_TO_INHG
+    };
     root.DeerForecast = DeerForecast;
     if (typeof module !== 'undefined' && module.exports) module.exports = DeerForecast;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

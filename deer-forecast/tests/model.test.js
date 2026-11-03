@@ -74,3 +74,30 @@ test('best windows fall within legal shooting light', () => {
         }
     }
 });
+
+test('wind direction matching against preferred stand winds', () => {
+    assert.strictEqual(DF.windMatch(320, 8, ['NW']), 'good');     // 5° off
+    assert.strictEqual(DF.windMatch(350, 8, ['NW']), 'ok');       // 35° off
+    assert.strictEqual(DF.windMatch(200, 8, ['NW']), 'bad');
+    assert.strictEqual(DF.windMatch(10, 8, ['NW', 'N']), 'good'); // any preferred direction counts
+    assert.strictEqual(DF.windMatch(355, 8, ['N']), 'good');      // wraps around north
+    assert.strictEqual(DF.windMatch(200, 2, ['NW']), 'calm');
+    assert.strictEqual(DF.windMatch(200, 8, []), null);
+    assert.strictEqual(DF.compass(320), 'NW');
+});
+
+test('preferred wind direction raises right-wind hours and lowers wrong-wind hours', () => {
+    const w = makeWeather(NOW); // SSW wind before the front, NW after
+    const base = DF.buildForecast(w, { rutPeak: '11-12', now: NOW });
+    const nw = DF.buildForecast(w, { rutPeak: '11-12', now: NOW, windDirs: ['NW'] });
+    const pre = nw.hours.findIndex((h) => h.windDir === 200);
+    const post = nw.hours.findIndex((h) => h.windDir === 320 && h.wind >= 3);
+    assert.strictEqual(nw.hours[pre].windMatch, 'bad');
+    assert.strictEqual(nw.hours[post].windMatch, 'good');
+    assert.ok(nw.hours[pre].score < base.hours[pre].score);
+    assert.ok(nw.hours[post].score > base.hours[post].score);
+    assert.ok(nw.hours[post].factors.some((f) => /right wind/.test(f.label)));
+    assert.strictEqual(base.hours[pre].windMatch, null);
+    const win = nw.daily.flatMap((d) => d.windows).find((x) => x.windMatch);
+    assert.ok(win && win.windDir != null);
+});

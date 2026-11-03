@@ -1,5 +1,5 @@
 // App-shell cache so the app opens offline. Weather data is cached by the app itself.
-const CACHE = 'deer-forecast-v1';
+const CACHE = 'deer-forecast-v2';
 const SHELL = ['./', 'index.html', 'styles.css', 'astro.js', 'forecast.js', 'app.js', 'icon.svg', 'manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
