@@ -1,0 +1,538 @@
+<title>Kala's Weather</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#f6e9e4">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sacramento&family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+/* Layout: one phone-width column — script greeting, a big latte-glass forecast card,
+   then a 2-up grid of "vibe" cards, an hourly strip and the week ahead. */
+:root {
+  --bg: #f6e9e4;          /* blush */
+  --bg-2: #fbf4f0;
+  --card: #fffaf7;
+  --ink: #3b2a26;         /* espresso */
+  --muted: #8a716a;
+  --rose: #d98c8c;        /* millennial pink, deepened */
+  --sage: #8fa58a;
+  --latte: #c49a74;
+  --gold: #b88a3e;
+  --line: #ead8d1;
+  --chip: #f1dfd8;
+  --shadow: 0 10px 30px -14px rgba(120, 70, 60, .35);
+  --script: "Sacramento", "Snell Roundhand", "Brush Script MT", cursive;
+  --display: "Fraunces", Georgia, "Times New Roman", serif;
+  --body: "Nunito", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #241a18; --bg-2: #2c211e; --card: #33262299; --ink: #f6e6df; --muted: #c2a69c;
+    --rose: #e8a3a0; --sage: #a9c0a3; --latte: #d8b08a; --gold: #dcb36a;
+    --line: #4a3833; --chip: #3d2e2a; --shadow: 0 10px 30px -14px rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #241a18; --bg-2: #2c211e; --card: #33262299; --ink: #f6e6df; --muted: #c2a69c;
+  --rose: #e8a3a0; --sage: #a9c0a3; --latte: #d8b08a; --gold: #dcb36a;
+  --line: #4a3833; --chip: #3d2e2a; --shadow: 0 10px 30px -14px rgba(0,0,0,.6);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  background: radial-gradient(120% 60% at 50% 0%, var(--bg-2), var(--bg) 70%) fixed, var(--bg);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+
+/* Header */
+header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.hello { font-family: var(--script); font-size: clamp(52px, 14vw, 68px); line-height: .9; color: var(--rose); margin: 0; font-weight: 400; }
+.date { font-size: 12px; text-transform: uppercase; letter-spacing: .14em; color: var(--muted); font-weight: 700; margin-top: 6px; }
+.controls { display: flex; gap: 8px; align-items: center; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.pill {
+  border: 1px solid var(--line); background: var(--card); border-radius: 999px;
+  padding: 8px 14px; font-size: 13px; font-weight: 700; display: inline-flex; gap: 6px; align-items: center;
+  max-width: 220px;
+}
+.pill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pill:hover { border-color: var(--rose); }
+:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+/* City search */
+.search { display: flex; flex-direction: column; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 14px; }
+.search-row { display: flex; gap: 8px; }
+.search input {
+  flex: 1; min-width: 0; font: inherit; color: var(--ink); background: var(--bg-2);
+  border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+}
+.btn { border: 0; background: var(--rose); color: #fff; border-radius: 12px; padding: 10px 14px; font-weight: 800; }
+.btn.ghost { background: var(--chip); color: var(--ink); }
+.results { display: flex; flex-direction: column; gap: 4px; }
+.results button { text-align: left; background: none; border: 0; padding: 8px 10px; border-radius: 10px; }
+.results button:hover { background: var(--chip); }
+.results small { color: var(--muted); }
+
+/* Hero */
+.hero {
+  position: relative; overflow: hidden;
+  background: linear-gradient(160deg, var(--card), var(--chip));
+  border: 1px solid var(--line); border-radius: 28px; padding: 22px 22px 20px; box-shadow: var(--shadow);
+}
+.hero-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.temp { font-family: var(--display); font-size: clamp(72px, 22vw, 104px); line-height: 1; font-weight: 400; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.temp sup { font-size: .4em; vertical-align: .9em; color: var(--muted); }
+.big-icon { font-size: clamp(64px, 18vw, 88px); line-height: 1; filter: drop-shadow(0 6px 10px rgba(0,0,0,.08)); }
+.cond { font-family: var(--display); font-size: 22px; font-weight: 600; margin: 4px 0 2px; text-wrap: balance; }
+.translation { font-size: 16px; color: var(--ink); margin: 0; text-wrap: pretty; }
+.translation em { font-family: var(--script); font-style: normal; font-size: 1.7em; color: var(--rose); line-height: 1; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 12.5px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.stat b { color: var(--ink); }
+
+/* Vibe grid */
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.vibe { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.vibe.wide { grid-column: 1 / -1; }
+.label { font-size: 11px; text-transform: uppercase; letter-spacing: .14em; font-weight: 800; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.label i { font-style: normal; font-size: 15px; letter-spacing: 0; }
+.vibe h3 { font-family: var(--display); font-size: 18px; font-weight: 600; margin: 2px 0 0; line-height: 1.25; text-wrap: balance; }
+.vibe p { margin: 0; color: var(--muted); font-size: 13.5px; }
+.meter { height: 8px; background: var(--chip); border-radius: 99px; overflow: hidden; margin-top: 6px; }
+.meter > div { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--sage), var(--latte), var(--rose)); }
+.checks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.checks span { font-size: 12.5px; font-weight: 700; background: var(--chip); border-radius: 999px; padding: 4px 10px; }
+.verdict { display: inline-block; align-self: flex-start; font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; color: #fff; background: var(--sage); margin-top: 2px; }
+.verdict.meh { background: var(--latte); }
+.verdict.nope { background: var(--rose); }
+
+/* Hourly */
+section h2 { font-family: var(--script); font-weight: 400; font-size: 36px; color: var(--rose); margin: 0 0 4px; line-height: 1; }
+.hours { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+.hour { flex: 0 0 64px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 10px 4px; text-align: center; display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
+.hour .t { font-size: 11.5px; font-weight: 800; color: var(--muted); }
+.hour .e { font-size: 22px; }
+.hour .d { font-weight: 800; }
+.hour .p { font-size: 11px; color: var(--sage); font-weight: 800; min-height: 1.2em; }
+
+/* Week */
+.week { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 6px 14px; }
+.day { display: grid; grid-template-columns: 52px 30px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px dashed var(--line); }
+.day:last-child { border-bottom: 0; }
+.day .n { font-weight: 800; }
+.day .e { font-size: 20px; text-align: center; }
+.day .v { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.day .r { font-variant-numeric: tabular-nums; font-weight: 800; white-space: nowrap; }
+.day .r span { color: var(--muted); font-weight: 600; margin-left: 6px; }
+
+/* Demo picker */
+.demo { background: var(--card); border: 1px dashed var(--rose); border-radius: 20px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.demo p { margin: 0; font-size: 13.5px; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { border: 1px solid var(--line); background: var(--bg-2); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700; }
+.chips button[aria-pressed="true"] { background: var(--rose); border-color: var(--rose); color: #fff; }
+
+footer { text-align: center; font-size: 12px; color: var(--muted); }
+footer .sign { font-family: var(--script); font-size: 28px; color: var(--latte); display: block; line-height: 1.1; }
+
+.status { text-align: center; color: var(--muted); font-weight: 700; padding: 30px 0; }
+
+@media (max-width: 380px) { .grid { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: no-preference) {
+  .big-icon { animation: bob 5s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-6px) rotate(-3deg); } }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1 class="hello" id="hello">Hey Kala,</h1>
+      <div class="date" id="date"></div>
+    </div>
+    <div class="controls">
+      <button class="pill" id="cityBtn" type="button" aria-expanded="false">📍 <span id="cityName">Pick your town</span></button>
+      <button class="pill" id="unitBtn" type="button" aria-label="Switch units">°F</button>
+    </div>
+  </header>
+
+  <form class="search" id="search" hidden>
+    <div class="search-row">
+      <input id="cityInput" type="search" placeholder="Search a city, e.g. Scottsdale" autocomplete="off" aria-label="City">
+      <button class="btn" type="submit">Find</button>
+    </div>
+    <button class="btn ghost" type="button" id="geoBtn">Use my location</button>
+    <div class="results" id="results"></div>
+  </form>
+
+  <div class="demo" id="demo" hidden>
+    <p id="demoMsg">Live weather can't load in this view, so here's a preview. Pick a sky to see what the app says.</p>
+    <div class="chips" id="demoChips"></div>
+  </div>
+
+  <main id="app" class="wrap" style="gap:18px"><div class="status">Checking the sky…</div></main>
+
+  <footer>
+    <span class="sign">made with love, for Kala</span>
+    <span id="source">Weather by Open-Meteo</span>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem("kw:" + k); return v ? JSON.parse(v) : d; } catch { return d; } },
+    set(k, v) { try { localStorage.setItem("kw:" + k, JSON.stringify(v)); } catch {} }
+  };
+
+  let unit = store.get("unit", "F");
+  let place = store.get("place", null);
+  let lastData = null;
+
+  // ---------- helpers ----------
+  const now = new Date();
+  const month = now.getMonth(); // 0-11
+  const daySeed = now.getFullYear() * 1000 + Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 864e5);
+  const pick = (arr, salt = 0) => arr[Math.abs((daySeed * 31 + salt * 17) % arr.length)];
+  const deg = (f) => Math.round(unit === "F" ? f : (f - 32) * 5 / 9);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function sky(code) {
+    if (code === 0) return "clear";
+    if (code <= 2) return "partly";
+    if (code === 3) return "cloudy";
+    if (code === 45 || code === 48) return "fog";
+    if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return "rain";
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return "snow";
+    if (code >= 95) return "storm";
+    return "cloudy";
+  }
+  const ICON = { clear: ["☀️", "🌙"], partly: ["⛅", "☁️"], cloudy: ["☁️", "☁️"], fog: ["🌫️", "🌫️"], rain: ["🌧️", "🌧️"], snow: ["❄️", "❄️"], storm: ["⛈️", "⛈️"] };
+  const icon = (code, isDay = 1) => ICON[sky(code)][isDay ? 0 : 1];
+  const NAME = { clear: "Sunny", partly: "Partly cloudy", cloudy: "Overcast", fog: "Foggy", rain: "Rainy", snow: "Snowing", storm: "Thunderstorms" };
+
+  function band(f) {
+    if (f < 32) return "freezing";
+    if (f < 46) return "cold";
+    if (f < 61) return "sweater";
+    if (f < 73) return "perfect";
+    if (f < 86) return "warm";
+    return "hot";
+  }
+
+  // ---------- the basic translations ----------
+  const TRANSLATE = {
+    freezing: ["It's giving <em>Hallmark movie</em>, minus the flannel-clad baker.", "Too cold to function. <em>Blanket burrito</em> mode activated.", "Literally Narnia out there. <em>Not</em> the cute part."],
+    cold: ["Officially <em>cozy season</em>. The puffer vest has been summoned.", "Cold enough to justify a <em>second</em> coffee.", "Scarf weather. Not a want, a <em>need</em>."],
+    sweater: ["Peak <em>sweater weather</em>. This is what we've been waiting for.", "Chunky knit, leggings, boots. <em>Iconic</em>.", "The air smells like <em>pumpkin spice</em> and good decisions."],
+    perfect: ["Honestly? <em>Perfection</em>. Patio brunch is calling.", "Not too hot, not too cold. <em>Goldilocks</em> would approve.", "Main character weather. <em>Go outside</em> and be seen."],
+    warm: ["Sundress season, <em>obviously</em>.", "Iced coffee weather. Okay, it's <em>always</em> iced coffee weather.", "Lake day energy. <em>Rosé</em> is on standby."],
+    hot: ["It's <em>so</em> hot. Like, Target-parking-lot-in-July hot.", "Do not touch the steering wheel. <em>Trust me</em>.", "Hair up, AC on, <em>no</em> plans that involve the sun."]
+  };
+  const SKY_LINE = {
+    rain: "Rain on the forecast: it's a candle-and-Netflix kind of day.",
+    storm: "Thunderstorms: cancel everything, put on Gilmore Girls.",
+    snow: "Snow day! Hot cocoa with the little marshmallows is mandatory.",
+    fog: "Foggy and moody. Very Pinterest-board-meets-Twilight.",
+  };
+
+  function outfit(f, s, wind) {
+    const wet = s === "rain" || s === "storm";
+    const b = band(f);
+    const base = {
+      freezing: ["Long puffer, beanie, UGGs", "The coat that looks like a sleeping bag. Fuzzy socks underneath."],
+      cold: ["Puffer vest + quarter-zip", "Leggings, tall boots and that scarf you keep in the car."],
+      sweater: ["Oversized knit + leggings", "Booties or Sambas. Flannel shacket if you're feeling it."],
+      perfect: ["Matching set + denim jacket", "White sneakers. Claw clip. Perfection."],
+      warm: ["Sundress or biker shorts", "Birkenstocks and a cute visor."],
+      hot: ["The flowiest thing you own", "Linen everything. Sunglasses as a personality."]
+    }[b];
+    let extra = base[1];
+    if (wet) extra = "Rain jacket and Hunter boots. Leave the suede at home.";
+    else if (s === "snow") extra = "Snow boots that can survive a Target parking lot.";
+    else if (wind > 18) extra += " It's windy, so skip the sundress.";
+    return { title: base[0], note: extra };
+  }
+
+  function drink(f, s) {
+    const fall = month >= 8 && month <= 10, winter = month === 11 || month <= 1;
+    if (band(f) === "hot") return { title: "Venti iced anything", note: "Extra ice. Maybe a Refresher with lemonade." };
+    if (band(f) === "warm") return { title: fall ? "Iced pumpkin cream cold brew" : "Iced oat milk latte", note: "Iced coffee in any weather is a lifestyle." };
+    if (s === "snow" || band(f) === "freezing") return { title: winter ? "Peppermint mocha" : "Hot chocolate", note: "Whipped cream is non-negotiable." };
+    if (fall) return { title: "Pumpkin spice latte", note: pick(["The seasonal cup is half the point.", "Oat milk, extra pump. You deserve it."], 3) };
+    if (winter) return { title: "Chestnut praline latte", note: "Red cup season is a mood." };
+    if (month >= 2 && month <= 4) return { title: "Lavender oat latte", note: "Spring in a cup. Very aesthetic." };
+    return { title: "Iced brown sugar shaken espresso", note: "Classic. Reliable. Like you." };
+  }
+
+  function hair(h, wind, s) {
+    let score = h;
+    if (s === "rain" || s === "storm") score += 20;
+    if (wind > 15) score += 15;
+    score = Math.max(5, Math.min(100, score));
+    let title, note;
+    if (score >= 80) { title = "Claw clip emergency"; note = "Don't bother with the blowout. Frizz is winning today."; }
+    else if (score >= 60) { title = "Messy bun recommended"; note = "Some frizz possible. Pack the anti-humidity spray."; }
+    else if (score >= 35) { title = "Good hair day likely"; note = "Your beach waves should hold."; }
+    else { title = "Blowout-safe"; note = "Dry air. Your hair will hold. Lip balm is a must."; }
+    if (wind > 18) note = "It's windy, so a scrunchie on the wrist is essential.";
+    return { title, note, score };
+  }
+
+  function sideline(f, s, wind, uv, pop) {
+    const bring = [];
+    if (f < 50) bring.push("Stadium blanket");
+    if (f < 40) bring.push("Hand warmers");
+    if (s === "rain" || pop >= 50) bring.push("Big umbrella");
+    if (uv >= 6) bring.push("SPF 50");
+    if (f >= 75) bring.push("Cooler of Capri Suns");
+    bring.push("Folding chair");
+    if (f < 60) bring.push("Thermos");
+    if (wind > 15) bring.push("Hair tie");
+    bring.push("Orange slices");
+    let verdict = "Great sideline weather", cls = "", note = "Perfect for cheering, snacks and some light gossip with the other moms.";
+    if (s === "storm") { verdict = "Games probably cancelled"; cls = "nope"; note = "Lightning means everyone heads to the minivans. Check the team group chat."; }
+    else if (s === "rain" || s === "snow" || f < 35 || f > 92) { verdict = "Bring the wagon"; cls = "meh"; note = "You'll make it through. Bring everything."; }
+    else if (wind > 20) { verdict = "Breezy bleachers"; cls = "meh"; note = "Hold onto the snack schedule clipboard."; }
+    return { verdict, cls, note, bring: bring.slice(0, 6) };
+  }
+
+  function candle(s, f) {
+    const fall = month >= 8 && month <= 10, winter = month === 11 || month <= 1;
+    if (s === "rain" || s === "storm") return { title: "Mahogany Teakwood", note: "Rainy days call for the dark, moody one." };
+    if (s === "snow") return { title: "Twisted Peppermint", note: "Snow outside, peppermint inside." };
+    if (fall) return { title: pick(["Leaves", "Sweater Weather", "Pumpkin Pecan Waffles"], 5), note: "Fall candle season is in full swing." };
+    if (winter) return { title: "Winter Candy Apple", note: "Festive but not too festive." };
+    if (f >= 80) return { title: "Ocean breeze", note: "Or just open a window and pretend it's the beach." };
+    return { title: "Eucalyptus spearmint", note: "Spa day at home. Face mask optional." };
+  }
+
+  function targetIndex(f, s, pop) {
+    if (s === "storm") return { title: "Peak Target conditions", note: "Indoors, air-conditioned, and the dollar spot just restocked.", score: 100 };
+    if (s === "rain" || s === "snow" || pop >= 60) return { title: "Excellent", note: "Best way to spend a gloomy day. Starbucks inside the store, of course.", score: 90 };
+    if (band(f) === "hot" || band(f) === "freezing") return { title: "Very good", note: "Climate-controlled retail therapy.", score: 75 };
+    if (band(f) === "perfect") return { title: "Fair", note: "Too nice for Target. Farmers market instead?", score: 40 };
+    return { title: "Good", note: "Just going in for paper towels. (Spends $140.)", score: 60 };
+  }
+
+  const DAY_VIBE = (hi, code) => {
+    const s = sky(code);
+    if (s === "storm") return "Stay-in-and-bake day";
+    if (s === "rain") return "Umbrella + Hunter boots";
+    if (s === "snow") return "Hot cocoa day";
+    if (s === "fog") return "Moody Pinterest day";
+    return { freezing: "Stay under the blanket", cold: "Puffer vest day", sweater: "Sweater weather", perfect: "Patio brunch day", warm: "Sundress day", hot: "Pool or nothing" }[band(hi)];
+  };
+
+  // ---------- render ----------
+  function render(d) {
+    lastData = d;
+    const c = d.current, s = sky(c.code);
+    const today = d.daily[0];
+    const t = band(c.feels);
+    const line = SKY_LINE[s] ? SKY_LINE[s] : pick(TRANSLATE[t]);
+    const o = outfit(c.feels, s, c.wind);
+    const dr = drink(c.feels, s);
+    const h = hair(c.humidity, c.wind, s);
+    const sl = sideline(c.feels, s, c.wind, today.uv, today.pop);
+    const cd = candle(s, c.feels);
+    const ti = targetIndex(c.feels, s, today.pop);
+    const hrs = new Date().getHours();
+    $("#hello").textContent = hrs < 12 ? "Morning, Kala" : hrs < 17 ? "Hey Kala," : "Evening, Kala";
+
+    $("#app").innerHTML = `
+      <div class="hero">
+        <div class="hero-top">
+          <div class="temp">${deg(c.temp)}<sup>°${unit}</sup></div>
+          <div class="big-icon" aria-hidden="true">${icon(c.code, c.isDay)}</div>
+        </div>
+        <div class="cond">${NAME[s]}${c.isDay ? "" : " tonight"}</div>
+        <p class="translation">${SKY_LINE[s] ? esc(line) : line}</p>
+        <div class="stats">
+          <span class="stat">Feels like <b>${deg(c.feels)}°</b></span>
+          <span class="stat">High <b>${deg(today.hi)}°</b> · Low <b>${deg(today.lo)}°</b></span>
+          <span class="stat">Rain <b>${today.pop}%</b></span>
+          <span class="stat">Humidity <b>${c.humidity}%</b></span>
+          <span class="stat">Wind <b>${Math.round(unit === "F" ? c.wind : c.wind * 1.609)} ${unit === "F" ? "mph" : "km/h"}</b></span>
+          <span class="stat">UV <b>${Math.round(today.uv)}</b></span>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="vibe">
+          <div class="label"><i>👢</i>Outfit of the day</div>
+          <h3>${esc(o.title)}</h3><p>${esc(o.note)}</p>
+        </div>
+        <div class="vibe">
+          <div class="label"><i>☕</i>Coffee order</div>
+          <h3>${esc(dr.title)}</h3><p>${esc(dr.note)}</p>
+        </div>
+        <div class="vibe">
+          <div class="label"><i>💁‍♀️</i>Hair forecast</div>
+          <h3>${esc(h.title)}</h3><p>${esc(h.note)}</p>
+          <div class="meter" role="meter" aria-label="Frizz risk" aria-valuenow="${h.score}" aria-valuemin="0" aria-valuemax="100"><div style="width:${h.score}%"></div></div>
+        </div>
+        <div class="vibe">
+          <div class="label"><i>🕯️</i>Candle to light</div>
+          <h3>${esc(cd.title)}</h3><p>${esc(cd.note)}</p>
+        </div>
+        <div class="vibe wide">
+          <div class="label"><i>⚽</i>Soccer sideline report</div>
+          <span class="verdict ${sl.cls}">${esc(sl.verdict)}</span>
+          <p>${esc(sl.note)}</p>
+          <div class="checks">${sl.bring.map((b) => `<span>✓ ${esc(b)}</span>`).join("")}</div>
+        </div>
+        <div class="vibe wide">
+          <div class="label"><i>🎯</i>Target run index</div>
+          <h3>${esc(ti.title)}</h3><p>${esc(ti.note)}</p>
+          <div class="meter" role="meter" aria-label="Target run index" aria-valuenow="${ti.score}" aria-valuemin="0" aria-valuemax="100"><div style="width:${ti.score}%"></div></div>
+        </div>
+      </div>
+
+      <section>
+        <h2>Next few hours</h2>
+        <div class="hours">${d.hourly.map((x) => `
+          <div class="hour"><span class="t">${x.label}</span><span class="e">${icon(x.code, x.isDay)}</span><span class="d">${deg(x.temp)}°</span><span class="p">${x.pop >= 20 ? "💧" + x.pop + "%" : ""}</span></div>`).join("")}
+        </div>
+      </section>
+
+      <section>
+        <h2>The week ahead</h2>
+        <div class="week">${d.daily.map((x, i) => `
+          <div class="day"><span class="n">${i === 0 ? "Today" : x.name}</span><span class="e">${icon(x.code)}</span><span class="v">${esc(DAY_VIBE(x.hi, x.code))}</span><span class="r">${deg(x.hi)}°<span>${deg(x.lo)}°</span></span></div>`).join("")}
+        </div>
+      </section>`;
+    $("#source").textContent = d.demo ? "Preview data · live weather by Open-Meteo when it can connect" : `Weather by Open-Meteo · updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  }
+
+  // ---------- live data ----------
+  async function load(p) {
+    $("#cityName").textContent = p.name;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}` +
+      `&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day` +
+      `&hourly=temperature_2m,weather_code,precipitation_probability,is_day` +
+      `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max` +
+      `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=7`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("weather " + r.status);
+    const j = await r.json();
+    const cur = j.current;
+    const start = Math.max(0, j.hourly.time.findIndex((t) => t >= cur.time.slice(0, 13)));
+    const hourly = j.hourly.time.slice(start, start + 12).map((t, i) => {
+      const k = start + i, hr = +t.slice(11, 13);
+      return { label: i === 0 ? "Now" : (hr % 12 || 12) + (hr < 12 ? "a" : "p"), temp: j.hourly.temperature_2m[k], code: j.hourly.weather_code[k], pop: j.hourly.precipitation_probability[k] ?? 0, isDay: j.hourly.is_day[k] };
+    });
+    const daily = j.daily.time.map((t, i) => ({
+      name: new Date(t + "T12:00").toLocaleDateString([], { weekday: "short" }),
+      hi: j.daily.temperature_2m_max[i], lo: j.daily.temperature_2m_min[i], code: j.daily.weather_code[i],
+      pop: j.daily.precipitation_probability_max[i] ?? 0, uv: j.daily.uv_index_max[i] ?? 0
+    }));
+    render({
+      current: { temp: cur.temperature_2m, feels: cur.apparent_temperature, humidity: cur.relative_humidity_2m, code: cur.weather_code, wind: cur.wind_speed_10m, isDay: cur.is_day },
+      hourly, daily
+    });
+    $("#demo").hidden = true;
+  }
+
+  // ---------- preview mode (when the network is unavailable) ----------
+  const SCENARIOS = {
+    "Crisp fall morning": { temp: 52, code: 1, humidity: 55, wind: 8, uv: 3, pop: 5 },
+    "Rainy & gross": { temp: 47, code: 63, humidity: 92, wind: 12, uv: 1, pop: 85 },
+    "Perfect patio day": { temp: 70, code: 0, humidity: 40, wind: 5, uv: 6, pop: 0 },
+    "Scorcher": { temp: 96, code: 0, humidity: 60, wind: 6, uv: 10, pop: 10 },
+    "Snow day": { temp: 26, code: 73, humidity: 85, wind: 10, uv: 1, pop: 90 },
+    "Thunderstorms": { temp: 78, code: 95, humidity: 88, wind: 22, uv: 4, pop: 90 },
+  };
+  function demo(name) {
+    const sc = SCENARIOS[name];
+    const hrNow = new Date().getHours();
+    const hourly = Array.from({ length: 12 }, (_, i) => {
+      const hr = (hrNow + i) % 24;
+      return { label: i === 0 ? "Now" : (hr % 12 || 12) + (hr < 12 ? "a" : "p"), temp: sc.temp + Math.round(Math.sin((hr - 9) / 24 * Math.PI * 2) * 6), code: sc.code, pop: sc.pop, isDay: hr >= 7 && hr < 18 ? 1 : 0 };
+    });
+    const codes = [sc.code, 2, 0, 61, 3, 0, 1];
+    const daily = Array.from({ length: 7 }, (_, i) => {
+      const dt = new Date(); dt.setDate(dt.getDate() + i);
+      return { name: dt.toLocaleDateString([], { weekday: "short" }), hi: sc.temp + 6 + ((i * 7) % 9) - 4, lo: sc.temp - 10 + ((i * 5) % 7) - 3, code: codes[i], pop: i === 0 ? sc.pop : (codes[i] >= 61 ? 70 : 10), uv: sc.uv };
+    });
+    render({ demo: true, current: { temp: sc.temp, feels: sc.temp - (sc.wind > 15 ? 4 : 0), humidity: sc.humidity, code: sc.code, wind: sc.wind, isDay: 1 }, hourly, daily });
+    document.querySelectorAll("#demoChips button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.s === name)));
+  }
+  function showDemo(msg) {
+    if (msg) $("#demoMsg").textContent = msg;
+    $("#demoChips").innerHTML = Object.keys(SCENARIOS).map((k) => `<button type="button" data-s="${esc(k)}" aria-pressed="false">${esc(k)}</button>`).join("");
+    $("#demoChips").onclick = (e) => { const b = e.target.closest("button"); if (b) demo(b.dataset.s); };
+    $("#demo").hidden = false;
+    demo(month >= 8 && month <= 10 ? "Crisp fall morning" : "Perfect patio day");
+  }
+
+  // ---------- city search ----------
+  $("#cityBtn").onclick = () => {
+    const f = $("#search"); f.hidden = !f.hidden;
+    $("#cityBtn").setAttribute("aria-expanded", String(!f.hidden));
+    if (!f.hidden) $("#cityInput").focus();
+  };
+  $("#search").onsubmit = async (e) => {
+    e.preventDefault();
+    const q = $("#cityInput").value.trim();
+    if (!q) return;
+    $("#results").innerHTML = `<small>Searching…</small>`;
+    try {
+      const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=en`);
+      const j = await r.json();
+      if (!j.results?.length) { $("#results").innerHTML = `<small>No towns found with that name. Try adding the state.</small>`; return; }
+      $("#results").innerHTML = j.results.map((x, i) => `<button type="button" data-i="${i}"><b>${esc(x.name)}</b> <small>${esc([x.admin1, x.country_code].filter(Boolean).join(", "))}</small></button>`).join("");
+      $("#results").onclick = (ev) => {
+        const b = ev.target.closest("button"); if (!b) return;
+        const x = j.results[+b.dataset.i];
+        choose({ name: x.name + (x.admin1 ? ", " + (x.country_code === "US" ? x.admin1 : x.country_code) : ""), lat: x.latitude, lon: x.longitude });
+      };
+    } catch { $("#results").innerHTML = `<small>Couldn't reach the town search. Check your connection and try again.</small>`; }
+  };
+  $("#geoBtn").onclick = () => {
+    if (!navigator.geolocation) return;
+    $("#results").innerHTML = `<small>Finding you…</small>`;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => choose({ name: "My location", lat: +pos.coords.latitude.toFixed(3), lon: +pos.coords.longitude.toFixed(3) }),
+      () => { $("#results").innerHTML = `<small>Location is off for this page. Search for your town instead.</small>`; },
+      { timeout: 10000 }
+    );
+  };
+  async function choose(p) {
+    place = p; store.set("place", p);
+    $("#search").hidden = true; $("#cityBtn").setAttribute("aria-expanded", "false"); $("#results").innerHTML = "";
+    $("#app").innerHTML = `<div class="status">Checking the sky…</div>`;
+    try { await load(p); } catch { showDemo("Couldn't load live weather right now, so here's a preview. Pick a sky to see what the app says."); }
+  }
+
+  $("#unitBtn").textContent = "°" + unit;
+  $("#unitBtn").onclick = () => {
+    unit = unit === "F" ? "C" : "F"; store.set("unit", unit);
+    $("#unitBtn").textContent = "°" + unit;
+    if (lastData) render(lastData);
+  };
+
+  $("#date").textContent = now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+
+  // ---------- start ----------
+  (async () => {
+    const p = place || { name: "Pick your town", lat: 40.71, lon: -74.01 };
+    try {
+      await load(p);
+      if (!place) { $("#cityName").textContent = "New York (tap to change)"; }
+    } catch {
+      $("#cityName").textContent = place ? place.name : "Pick your town";
+      showDemo();
+    }
+  })();
+})();
+</script>
